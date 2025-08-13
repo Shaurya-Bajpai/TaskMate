@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.to_dolist"
+    namespace = "com.example.taskmate"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.to_dolist"
+        applicationId = "com.example.taskmate"
         minSdk = 24
         targetSdk = 34
         versionCode = 1

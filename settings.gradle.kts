@@ -13,6 +13,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "To-Do List"
+rootProject.name = "TaskMate"
 include(":app")
  
