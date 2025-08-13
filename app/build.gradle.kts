@@ -56,6 +56,13 @@ dependencies {
     val nav_version = "2.7.5"
     val compose_version = "1.6.0-alpha08"
 
+    // Coroutines
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+
+    // Animation
+    implementation("androidx.compose.animation:animation:1.6.2")
+    implementation("androidx.compose.animation:animation-graphics:1.6.2")
+
     // Room
     implementation("androidx.room:room-runtime:$room")
     implementation("androidx.room:room-ktx:$room")

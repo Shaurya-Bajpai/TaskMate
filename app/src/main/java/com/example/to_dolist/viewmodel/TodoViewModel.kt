@@ -1,22 +1,20 @@
 package com.example.to_dolist.viewmodel
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.to_dolist.data.Todo
 import com.example.to_dolist.database.TodoRepository
 import com.example.to_dolist.graph.Graph
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.launch
 
 class TodoViewModel(
     private var todoRepository: TodoRepository = Graph.todoRepository
 ): ViewModel() {
 
     var title by mutableStateOf("")
+        private set
 
     fun titleChange(newString: String) {
         title = newString
@@ -33,6 +31,7 @@ class TodoViewModel(
     fun addTask(todo: Todo){
         viewModelScope.launch(Dispatchers.IO) {
             todoRepository.addTask(todo = todo)
+            title = ""
         }
     }
 
