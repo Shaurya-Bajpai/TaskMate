@@ -1,4 +1,4 @@
-package com.example.taskmate.home.task
+package com.example.taskmate.home.first.task
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -18,7 +18,7 @@ import androidx.compose.ui.unit.*
 import com.example.taskmate.R
 import com.example.taskmate.color.TaskMateColors
 import com.example.taskmate.data.Todo
-import com.example.taskmate.home.dialogs.DeleteDialog
+import com.example.taskmate.home.first.dialogs.DeleteDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

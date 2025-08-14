@@ -1,4 +1,4 @@
-package com.example.taskmate.home.splash
+package com.example.taskmate.home.first.splash
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background

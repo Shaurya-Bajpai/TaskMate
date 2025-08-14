@@ -1,4 +1,4 @@
-package com.example.taskmate.home.task
+package com.example.taskmate.home.first.task
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background

@@ -1,4 +1,4 @@
-package com.example.taskmate.home.dialogs
+package com.example.taskmate.home.first.dialogs
 
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape

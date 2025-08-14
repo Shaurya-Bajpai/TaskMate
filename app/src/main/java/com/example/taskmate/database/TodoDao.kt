@@ -5,19 +5,38 @@ import com.example.taskmate.data.Todo
 import kotlinx.coroutines.flow.Flow
 
 @Dao
-abstract class TodoDao {
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
-    abstract suspend fun addTask(conEntity: Todo)
+interface TodoDao {
 
-    @Query("Select * from `todo-table`")
-    abstract fun getAllTask(): Flow<List<Todo>>
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun addTask(todo: Todo)
+
+    @Query("SELECT * FROM `todo-table` ORDER BY `todo-priority` DESC, `todo-created-at` DESC")
+    fun getAllTask(): Flow<List<Todo>>
+
+    @Query("SELECT * FROM `todo-table` WHERE `todo-is-completed` = 0 ORDER BY `todo-priority` DESC, `todo-due-date` ASC")
+    fun getActiveTasks(): Flow<List<Todo>>
+
+    @Query("SELECT * FROM `todo-table` WHERE `todo-is-completed` = 1 ORDER BY `todo-created-at` DESC")
+    fun getCompletedTasks(): Flow<List<Todo>>
+
+    @Query("SELECT * FROM `todo-table` WHERE (`todo-title` LIKE :query OR `todo-description` LIKE :query) ORDER BY `todo-priority` DESC")
+    fun searchTasks(query: String): Flow<List<Todo>>
+
+    @Query("SELECT * FROM `todo-table` WHERE `todo-category` = :category ORDER BY `todo-priority` DESC")
+    fun getTasksByCategory(category: String): Flow<List<Todo>>
 
     @Update
-    abstract suspend fun updateTask(conEntity: Todo) // Marked as suspend
+    suspend fun updateTask(todo: Todo)
 
     @Delete
-    abstract suspend fun deleteTask(conEntity: Todo) // Marked as suspend
+    suspend fun deleteTask(todo: Todo)
 
-    @Query("Select * from `todo-table` where id=:id")
-    abstract fun getTaskById(id: Long): Flow<Todo>
+    @Query("SELECT * FROM `todo-table` WHERE id = :id")
+    fun getTaskById(id: Long): Flow<Todo>
+
+    @Query("SELECT COUNT(*) FROM `todo-table` WHERE `todo-is-completed` = 1")
+    fun getCompletedTaskCount(): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM `todo-table`")
+    fun getTotalTaskCount(): Flow<Int>
 }

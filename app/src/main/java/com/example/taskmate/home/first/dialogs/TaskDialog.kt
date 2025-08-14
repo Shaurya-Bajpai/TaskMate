@@ -1,4 +1,4 @@
-package com.example.taskmate.home.dialogs
+package com.example.taskmate.home.first.dialogs
 
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
