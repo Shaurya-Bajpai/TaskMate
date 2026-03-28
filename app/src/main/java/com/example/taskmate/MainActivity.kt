@@ -6,7 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.view.WindowCompat
 import com.example.taskmate.color.TaskMateColors
-import com.example.to_dolist.home.TaskMateHomeScreen
+import com.example.taskmate.home.TaskMateHomeScreen
 import dagger.hilt.android.AndroidEntryPoint
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.taskmate.viewmodel.TodoViewModel

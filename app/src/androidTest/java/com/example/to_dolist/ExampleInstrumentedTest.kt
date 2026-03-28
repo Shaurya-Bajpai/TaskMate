@@ -1,4 +1,4 @@
-package com.example.taskmate
+package com.example.to_dolist
 
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4

@@ -1,4 +1,4 @@
-package com.example.to_dolist.home
+package com.example.taskmate.home
 
 import android.app.Activity
 import androidx.activity.compose.BackHandler
