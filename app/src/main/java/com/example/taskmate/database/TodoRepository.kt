@@ -7,7 +7,7 @@ import javax.inject.Inject
 
 class TodoRepository @Inject constructor(private val todoDao: TodoDao) {
 
-    suspend fun addTask(todo: Todo) = todoDao.addTask(todo)
+    suspend fun addTask(todo: Todo): Long = todoDao.addTask(todo)
 
     suspend fun updateTask(todo: Todo) = todoDao.updateTask(todo)
 

@@ -1,5 +1,6 @@
 package com.example.taskmate.viewmodel
 
+import android.content.Context
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.runtime.*
@@ -9,7 +10,9 @@ import com.example.taskmate.data.Category
 import com.example.taskmate.data.Priority
 import com.example.taskmate.data.Todo
 import com.example.taskmate.database.TodoRepository
+import com.example.taskmate.worker.ReminderWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,7 +23,10 @@ import java.util.Calendar
 import javax.inject.Inject
 
 @HiltViewModel
-class TodoViewModel @Inject constructor(private val repository: TodoRepository) : ViewModel() {
+class TodoViewModel @Inject constructor(
+    private val repository: TodoRepository,
+    @ApplicationContext private val context: Context
+) : ViewModel() {
     // UI State
     private val _uiState = MutableStateFlow(TodoUiState())
     val uiState: StateFlow<TodoUiState> = _uiState.asStateFlow()
@@ -48,7 +54,8 @@ class TodoViewModel @Inject constructor(private val repository: TodoRepository) 
     fun addTask(todo: Todo) {
         viewModelScope.launch {
             try {
-                repository.addTask(todo)
+                val newId: Long = repository.addTask(todo)
+                ReminderWorker.scheduleReminder(context, todo.copy(id = newId))
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     errorMessage = null
@@ -66,6 +73,11 @@ class TodoViewModel @Inject constructor(private val repository: TodoRepository) 
         viewModelScope.launch {
             try {
                 repository.updateTask(todo)
+                if (todo.isCompleted) {
+                    ReminderWorker.cancelReminder(context, todo.id)
+                } else {
+                    ReminderWorker.scheduleReminder(context, todo)
+                }
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     errorMessage = null
@@ -83,6 +95,7 @@ class TodoViewModel @Inject constructor(private val repository: TodoRepository) 
         viewModelScope.launch {
             try {
                 repository.deleteTask(todo)
+                ReminderWorker.cancelReminder(context, todo.id)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     errorMessage = null

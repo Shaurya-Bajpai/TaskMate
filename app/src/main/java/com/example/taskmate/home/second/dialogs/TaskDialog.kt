@@ -1,6 +1,10 @@
 package com.example.taskmate.home.second.dialogs
 
+import android.Manifest
+import android.os.Build
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,6 +26,7 @@ import com.example.taskmate.data.*
 import com.example.taskmate.home.second.chips.CategoryChip
 import com.example.taskmate.home.second.chips.PriorityChip
 import com.example.taskmate.home.second.formatDate
+import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,57 +36,163 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
     var description by remember { mutableStateOf(todo?.description ?: "") }
     var selectedPriority by remember { mutableStateOf(todo?.priority ?: Priority.MEDIUM) }
     var selectedCategory by remember { mutableStateOf(todo?.category ?: Category.PERSONAL) }
-    var showDatePicker by remember { mutableStateOf(false) }
+    
+    // 0 = None, 1 = DatePicker, 2 = TimePicker
+    var activePickerDialog by remember { mutableIntStateOf(0) }
+    
     var selectedDate by remember { mutableStateOf(todo?.dueDate) }
 
-    // Create DatePickerDialog
-    if (showDatePicker) {
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { /* We just need it requested to post notifications */ }
+    )
+
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    // Create a unified Dialog for Date and Time Pickers to prevent flicker
+    if (activePickerDialog != 0) {
+        val today = remember {
+            Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }.timeInMillis
+        }
+
         val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = selectedDate ?: System.currentTimeMillis()
+            initialSelectedDateMillis = selectedDate ?: today
+        )
+        
+        val initialCal = remember { Calendar.getInstance() }
+        val timePickerState = rememberTimePickerState(
+            initialHour = if (selectedDate != null) {
+                val cal = Calendar.getInstance()
+                cal.timeInMillis = selectedDate!!
+                cal.get(Calendar.HOUR_OF_DAY)
+            } else initialCal.get(Calendar.HOUR_OF_DAY),
+            initialMinute = if (selectedDate != null) {
+                val cal = Calendar.getInstance()
+                cal.timeInMillis = selectedDate!!
+                cal.get(Calendar.MINUTE)
+            } else initialCal.get(Calendar.MINUTE)
         )
 
+        var initialDate by remember { mutableStateOf(datePickerState.selectedDateMillis) }
+        
+        // Auto-transition to time picker when a new date is selected
+        LaunchedEffect(datePickerState.selectedDateMillis) {
+            if (activePickerDialog == 1 && datePickerState.selectedDateMillis != initialDate) {
+                selectedDate = datePickerState.selectedDateMillis
+                activePickerDialog = 2
+                initialDate = datePickerState.selectedDateMillis
+            }
+        }
+
         DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
+            onDismissRequest = { activePickerDialog = 0 },
             confirmButton = {
-                TextButton(
-                    onClick = {
+                if (activePickerDialog == 1) {
+                    TextButton(onClick = {
                         selectedDate = datePickerState.selectedDateMillis
-                        showDatePicker = false
+                        activePickerDialog = 2
+                    }) {
+                        Text("Next", color = Color(0xFF6366F1))
                     }
-                ) {
-                    Text("OK", color = Color(0xFF6366F1))
+                } else if (activePickerDialog == 2) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(onClick = { activePickerDialog = 1 }) {
+                            Text("Back", color = Color.White.copy(alpha = 0.7f))
+                        }
+                        TextButton(onClick = {
+                            val cal = Calendar.getInstance()
+                            selectedDate?.let { cal.timeInMillis = it }
+                            cal.set(Calendar.HOUR_OF_DAY, timePickerState.hour)
+                            cal.set(Calendar.MINUTE, timePickerState.minute)
+                            cal.set(Calendar.SECOND, 0)
+                            selectedDate = cal.timeInMillis
+                            activePickerDialog = 0
+                        }) {
+                            Text("OK", color = Color(0xFF6366F1))
+                        }
+                    }
                 }
             },
             dismissButton = {
-                TextButton(
-                    onClick = { showDatePicker = false }
-                ) {
-                    Text("Cancel", color = Color.White.copy(alpha = 0.7f))
+                if (activePickerDialog == 1) {
+                    TextButton(onClick = { activePickerDialog = 0 }) {
+                        Text("Cancel", color = Color.White.copy(alpha = 0.7f))
+                    }
                 }
             },
             colors = DatePickerDefaults.colors(
                 containerColor = Color(0xFF2D3748)
             )
         ) {
-            DatePicker(
-                state = datePickerState,
-                colors = DatePickerDefaults.colors(
-                    containerColor = Color(0xFF2D3748),
-                    titleContentColor = Color.White,
-                    headlineContentColor = Color.White,
-                    weekdayContentColor = Color.White,
-                    subheadContentColor = Color.White,
-                    yearContentColor = Color.White,
-                    currentYearContentColor = Color(0xFF6366F1),
-                    selectedYearContentColor = Color.White,
-                    selectedYearContainerColor = Color(0xFF6366F1),
-                    dayContentColor = Color.White,
-                    selectedDayContentColor = Color.White,
-                    selectedDayContainerColor = Color(0xFF6366F1),
-                    todayContentColor = Color(0xFF6366F1),
-                    todayDateBorderColor = Color(0xFF6366F1)
-                )
-            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = if (activePickerDialog == 2) 16.dp else 0.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                if (activePickerDialog == 1) {
+                    DatePicker(
+                        state = datePickerState,
+                        colors = DatePickerDefaults.colors(
+                            containerColor = Color(0xFF2D3748),
+                            titleContentColor = Color.White,
+                            headlineContentColor = Color.White,
+                            weekdayContentColor = Color.White,
+                            subheadContentColor = Color.White,
+                            yearContentColor = Color.White,
+                            currentYearContentColor = Color(0xFF6366F1),
+                            selectedYearContentColor = Color.White,
+                            selectedYearContainerColor = Color(0xFF6366F1),
+                            dayContentColor = Color.White,
+                            selectedDayContentColor = Color.White,
+                            selectedDayContainerColor = Color(0xFF6366F1),
+                            todayContentColor = Color(0xFF6366F1),
+                            todayDateBorderColor = Color(0xFF6366F1)
+                        )
+                    )
+                } else if (activePickerDialog == 2) {
+                    Text(
+                        text = "Set Time",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+
+                    TimePicker(
+                        state = timePickerState,
+                        colors = TimePickerDefaults.colors(
+                            clockDialColor = Color(0xFF374151),
+                            clockDialSelectedContentColor = Color.White,
+                            clockDialUnselectedContentColor = Color.White,
+                            selectorColor = Color(0xFF6366F1),
+                            containerColor = Color(0xFF2D3748),
+                            periodSelectorBorderColor = Color(0xFF6366F1),
+                            periodSelectorSelectedContainerColor = Color(0xFF6366F1),
+                            periodSelectorUnselectedContainerColor = Color.Transparent,
+                            periodSelectorSelectedContentColor = Color.White,
+                            periodSelectorUnselectedContentColor = Color.White,
+                            timeSelectorSelectedContainerColor = Color(0xFF6366F1),
+                            timeSelectorUnselectedContainerColor = Color(0xFF374151),
+                            timeSelectorSelectedContentColor = Color.White,
+                            timeSelectorUnselectedContentColor = Color.White
+                        )
+                    )
+                }
+            }
         }
     }
 
@@ -216,7 +327,7 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
 
                     Row {
                         Button(
-                            onClick = { showDatePicker = true },
+                            onClick = { activePickerDialog = 1 },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = Color(0xFF6366F1)
                             ),

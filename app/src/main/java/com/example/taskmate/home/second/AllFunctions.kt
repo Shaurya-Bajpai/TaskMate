@@ -34,7 +34,7 @@ fun getCategoryColor(category: Category): Color {
 }
 
 fun formatDate(timestamp: Long): String {
-    val formatter = SimpleDateFormat("MMM dd", Locale.getDefault())
+    val formatter = SimpleDateFormat("MMM dd, hh:mm a", Locale.getDefault())
     return formatter.format(Date(timestamp))
 }
 

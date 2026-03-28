@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.Flow
 interface TodoDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun addTask(todo: Todo)
+    suspend fun addTask(todo: Todo): Long
 
     @Query("SELECT * FROM `todo-table` ORDER BY `todo-priority` DESC, `todo-created-at` DESC")
     fun getAllTask(): Flow<List<Todo>>
