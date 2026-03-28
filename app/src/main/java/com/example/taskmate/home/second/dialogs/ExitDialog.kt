@@ -14,8 +14,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.taskmate.R
 
 @Composable
 fun ExitDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
@@ -31,14 +33,14 @@ fun ExitDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
         },
         title = {
             Text(
-                text = "Exit",
+                text = stringResource(id = R.string.exit_title),
                 color = Color.White,
                 fontWeight = FontWeight.Bold
             )
         },
         text = {
             Text(
-                text = "Do you want to exit from TaskMate?",
+                text = stringResource(id = R.string.exit_desc),
                 color = Color.White.copy(alpha = 0.8f)
             )
         },
@@ -50,7 +52,7 @@ fun ExitDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
                 ),
                 shape = RoundedCornerShape(8.dp)
             ) {
-                Text("Exit", color = Color.White)
+                Text(stringResource(id = R.string.exit_title), color = Color.White)
             }
         },
         dismissButton = {
@@ -60,7 +62,7 @@ fun ExitDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
                     contentColor = Color.White.copy(alpha = 0.7f)
                 )
             ) {
-                Text("Cancel")
+                Text(stringResource(id = R.string.cancel))
             }
         },
         containerColor = Color(0xFF2D3748),

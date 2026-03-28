@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.*
@@ -187,7 +188,7 @@ fun SplashScreen() {
             Spacer(modifier = Modifier.height(40.dp))
 
             Text(
-                text = "TaskMate",
+                text = stringResource(id = R.string.app_name),
                 fontSize = 42.sp,
                 fontWeight = FontWeight.Black,
                 color = Color.White,
@@ -198,7 +199,7 @@ fun SplashScreen() {
             Spacer(modifier = Modifier.height(12.dp))
 
             Text(
-                text = "✨ Organize • Prioritize • Achieve ✨",
+                text = stringResource(id = R.string.organize_prioritize_achieve),
                 fontSize = 16.sp,
                 color = Color.White.copy(alpha = 0.9f),
                 textAlign = TextAlign.Center,

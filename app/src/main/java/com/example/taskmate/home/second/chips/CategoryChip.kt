@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -38,11 +39,11 @@ fun CategoryChip(category: Category, isSelected: Boolean, onClick: () -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
-                text = category.icon,
+                text = stringResource(category.icon),
                 fontSize = 12.sp
             )
             Text(
-                text = category.displayName,
+                text = stringResource(category.displayName),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
                 color = if (isSelected) Color.White else Color.White.copy(alpha = 0.7f)

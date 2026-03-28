@@ -12,6 +12,7 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.work.HiltWorker
 import androidx.work.*
 import com.example.taskmate.data.Todo
+import com.example.taskmate.R
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import java.util.concurrent.TimeUnit
@@ -23,7 +24,7 @@ class ReminderWorker @AssistedInject constructor(
 ) : CoroutineWorker(context, workerParams) {
 
     override suspend fun doWork(): Result {
-        val taskTitle = inputData.getString(KEY_TITLE) ?: "Task Reminder"
+        val taskTitle = inputData.getString(KEY_TITLE) ?: applicationContext.getString(R.string.default_task_reminder)
         val taskId = inputData.getLong(KEY_TASK_ID, -1L)
         
         showNotification(taskTitle, taskId.toInt())
@@ -46,8 +47,8 @@ class ReminderWorker @AssistedInject constructor(
         )
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val name = "Task Reminders"
-            val descriptionText = "Notifications for due tasks"
+            val name = applicationContext.getString(R.string.task_reminder_channel_name)
+            val descriptionText = applicationContext.getString(R.string.task_reminder_channel_desc)
             val importance = NotificationManager.IMPORTANCE_HIGH
             val channel = NotificationChannel(channelId, name, importance).apply {
                 description = descriptionText
@@ -59,7 +60,7 @@ class ReminderWorker @AssistedInject constructor(
 
         val builder = NotificationCompat.Builder(applicationContext, channelId)
             .setSmallIcon(android.R.drawable.ic_dialog_info) // Fallback icon
-            .setContentTitle("Task Due")
+            .setContentTitle(applicationContext.getString(R.string.task_due))
             .setContentText(title)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)

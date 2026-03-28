@@ -17,11 +17,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.*
 import androidx.compose.ui.window.DialogProperties
+import com.example.taskmate.R
 import com.example.taskmate.data.*
 import com.example.taskmate.home.second.chips.CategoryChip
 import com.example.taskmate.home.second.chips.PriorityChip
@@ -101,7 +103,7 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
                         selectedDate = datePickerState.selectedDateMillis
                         activePickerDialog = 2
                     }) {
-                        Text("Next", color = Color(0xFF6366F1))
+                        Text(stringResource(id = R.string.next), color = Color(0xFF6366F1))
                     }
                 } else if (activePickerDialog == 2) {
                     Row(
@@ -110,7 +112,7 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         TextButton(onClick = { activePickerDialog = 1 }) {
-                            Text("Back", color = Color.White.copy(alpha = 0.7f))
+                            Text(stringResource(id = R.string.back), color = Color.White.copy(alpha = 0.7f))
                         }
                         TextButton(onClick = {
                             val cal = Calendar.getInstance()
@@ -121,7 +123,7 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
                             selectedDate = cal.timeInMillis
                             activePickerDialog = 0
                         }) {
-                            Text("OK", color = Color(0xFF6366F1))
+                            Text(stringResource(id = R.string.ok_button), color = Color(0xFF6366F1))
                         }
                     }
                 }
@@ -129,7 +131,7 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
             dismissButton = {
                 if (activePickerDialog == 1) {
                     TextButton(onClick = { activePickerDialog = 0 }) {
-                        Text("Cancel", color = Color.White.copy(alpha = 0.7f))
+                        Text(stringResource(id = R.string.cancel), color = Color.White.copy(alpha = 0.7f))
                     }
                 }
             },
@@ -165,7 +167,7 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
                     )
                 } else if (activePickerDialog == 2) {
                     Text(
-                        text = "Set Time",
+                        text = stringResource(id = R.string.set_time),
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
@@ -206,7 +208,11 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
         ) {
             Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
                 Text(
-                    text = if (todo != null) "✏️ Edit Task" else "✨ Create New Task",
+                    text = if (todo != null) {
+                        stringResource(id = R.string.emoji_edit) + " " + stringResource(id = R.string.edit_task)
+                    } else {
+                        stringResource(id = R.string.emoji_create) + " " + stringResource(id = R.string.create_new_task)
+                    },
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
@@ -217,7 +223,7 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
-                    label = { Text("Task Title", color = Color.White.copy(alpha = 0.7f)) },
+                    label = { Text(stringResource(id = R.string.task_title_hint), color = Color.White.copy(alpha = 0.7f)) },
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = Color.White,
@@ -240,7 +246,7 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
-                    label = { Text("Description (Optional)", color = Color.White.copy(alpha = 0.7f)) },
+                    label = { Text(stringResource(id = R.string.description_hint), color = Color.White.copy(alpha = 0.7f)) },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 2,
                     maxLines = 3,
@@ -259,7 +265,7 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
 
                 // Priority Selection
                 Text(
-                    text = "Priority Level",
+                    text = stringResource(id = R.string.priority_level),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium,
                     color = Color.White,
@@ -284,7 +290,7 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
 
                 // Category Selection
                 Text(
-                    text = "Category",
+                    text = stringResource(id = R.string.category),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium,
                     color = Color.White,
@@ -313,13 +319,13 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
                 ) {
                     Column {
                         Text(
-                            text = "Due Date",
+                            text = stringResource(id = R.string.due_date),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium,
                             color = Color.White
                         )
                         Text(
-                            text = selectedDate?.let { formatDate(it) } ?: "No due date",
+                            text = selectedDate?.let { formatDate(context, it) } ?: stringResource(id = R.string.no_due_date),
                             fontSize = 12.sp,
                             color = Color.White.copy(alpha = 0.7f)
                         )
@@ -339,7 +345,7 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Set Date", color = Color.White)
+                            Text(stringResource(id = R.string.set_date), color = Color.White)
                         }
 
                         if (selectedDate != null) {
@@ -349,7 +355,7 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
                             ) {
                                 Icon(
                                     Icons.Default.Clear,
-                                    contentDescription = "Clear date",
+                                    contentDescription = stringResource(id = R.string.clear_date),
                                     tint = Color(0xFFEF4444),
                                     modifier = Modifier.size(20.dp)
                                 )
@@ -373,7 +379,7 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
                             contentColor = Color.White.copy(alpha = 0.7f)
                         )
                     ) {
-                        Text("Cancel", modifier = Modifier.padding(vertical = 4.dp))
+                        Text(stringResource(id = R.string.cancel), modifier = Modifier.padding(vertical = 4.dp))
                     }
 
                     Button(
@@ -391,7 +397,7 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
                                 )
                                 onConfirm(newTodo)
                             } else {
-                                Toast.makeText(context, "Please enter a task title", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.empty_title_error), Toast.LENGTH_SHORT).show()
                             }
                         },
                         modifier = Modifier.weight(1f),
@@ -401,7 +407,7 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
                         )
                     ) {
                         Text(
-                            text = if (todo != null) "Update" else "Create",
+                            text = if (todo != null) stringResource(id = R.string.update) else stringResource(id = R.string.create),
                             modifier = Modifier.padding(vertical = 4.dp),
                             color = Color.White
                         )

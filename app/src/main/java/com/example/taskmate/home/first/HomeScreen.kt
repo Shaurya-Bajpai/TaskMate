@@ -91,7 +91,7 @@ package com.example.taskmate.home.first
 //                    ) {
 //                        Icon(
 //                            imageVector = Icons.Default.Add,
-//                            contentDescription = "Add Task",
+//                            contentDescription = stringResource(R.string.add_task),
 //                            modifier = Modifier.size(28.dp)
 //                        )
 //                    }

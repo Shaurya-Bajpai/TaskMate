@@ -6,9 +6,11 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.*
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.*
+import com.example.taskmate.R
 import com.example.taskmate.color.TaskMateColors
 
 @Composable
@@ -28,7 +30,7 @@ fun EmptyState() {
         )
         Spacer(modifier = Modifier.height(24.dp))
         Text(
-            text = "No tasks yet!",
+            text = stringResource(id = R.string.no_tasks_yet),
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
             color = TaskMateColors.TextPrimary,
@@ -36,7 +38,7 @@ fun EmptyState() {
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Tap the + button to add your first task\nand start organizing your day!",
+            text = stringResource(id = R.string.add_first_task_desc),
             fontSize = 16.sp,
             color = TaskMateColors.TextSecondary,
             textAlign = TextAlign.Center,

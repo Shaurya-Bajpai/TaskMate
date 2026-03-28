@@ -8,11 +8,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.*
 import androidx.compose.ui.window.DialogProperties
+import com.example.taskmate.R
 import com.example.taskmate.color.TaskMateColors
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -38,8 +40,8 @@ fun TaskDialog(isEdit: Boolean, title: String, onTitleChange: (String) -> Unit, 
                     .padding(24.dp)
             ) {
                 Text(
-                    text = if (isEdit) "Edit Task" else "Add New Task",
-                    fontSize = 24.sp,
+                    text = if (isEdit) stringResource(id = R.string.update_task) else stringResource(id = R.string.add_task),
+                    style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = TaskMateColors.TextPrimary,
                     modifier = Modifier.padding(bottom = 24.dp)
@@ -48,7 +50,7 @@ fun TaskDialog(isEdit: Boolean, title: String, onTitleChange: (String) -> Unit, 
                 OutlinedTextField(
                     value = title,
                     onValueChange = onTitleChange,
-                    label = { Text("Task description", color = TaskMateColors.TextSecondary) },
+                    label = { Text(stringResource(R.string.description_hint), color = TaskMateColors.TextSecondary) },
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = TaskMateColors.TextPrimary,
@@ -80,7 +82,7 @@ fun TaskDialog(isEdit: Boolean, title: String, onTitleChange: (String) -> Unit, 
                             contentColor = TaskMateColors.TextSecondary
                         )
                     ) {
-                        Text("Cancel", modifier = Modifier.padding(vertical = 4.dp))
+                        Text(stringResource(R.string.cancel), modifier = Modifier.padding(vertical = 4.dp))
                     }
 
                     Button(
@@ -88,7 +90,7 @@ fun TaskDialog(isEdit: Boolean, title: String, onTitleChange: (String) -> Unit, 
                             if (title.isNotBlank()) {
                                 onConfirm()
                             } else {
-                                Toast.makeText(context, "Description cannot be empty", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.description_empty_error), Toast.LENGTH_SHORT).show()
                             }
                         },
                         modifier = Modifier.weight(1f),
@@ -98,7 +100,7 @@ fun TaskDialog(isEdit: Boolean, title: String, onTitleChange: (String) -> Unit, 
                         )
                     ) {
                         Text(
-                            text = if (isEdit) "Update" else "Add",
+                            text = if (isEdit) stringResource(id = R.string.update) else stringResource(id = R.string.add),
                             modifier = Modifier.padding(vertical = 4.dp),
                             color = TaskMateColors.TextPrimary
                         )

@@ -23,11 +23,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.taskmate.R
 import com.example.taskmate.color.TaskMateColors
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -68,7 +70,7 @@ fun TopAppBar(
                         Column(modifier = Modifier.weight(1f)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = "TaskMate",
+                                    text = stringResource(id = R.string.app_name),
                                     fontSize = 28.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White
@@ -77,11 +79,13 @@ fun TopAppBar(
 
                             Spacer(modifier = Modifier.height(4.dp))
 
-                            Text(
-                                text = "$completedCount of $totalCount tasks completed",
-                                fontSize = 14.sp,
-                                color = Color.White.copy(alpha = 0.9f)
-                            )
+                            AnimatedVisibility(visible = totalCount > 0) {
+                                Text(
+                                    text = stringResource(id = R.string.tasks_completed_format, completedCount, totalCount),
+                                    fontSize = 14.sp,
+                                    color = Color.White.copy(alpha = 0.9f)
+                                )
+                            }
                         }
 
                         // Circular progress
@@ -113,8 +117,9 @@ fun TopAppBar(
                         onValueChange = onSearchChange,
                         placeholder = {
                             Text(
-                                if (isSearchActive) "Search your tasks..." else "Search tasks...",
-                                color = Color.White.copy(alpha = 0.7f),
+                                if (isSearchActive) stringResource(id = R.string.search_active_placeholder) else stringResource(id = R.string.search_inactive_placeholder),
+                                color = Color.White.copy(alpha = 0.5f),
+                                fontSize = 16.sp
                             )
                         },
                         leadingIcon = {
@@ -125,13 +130,15 @@ fun TopAppBar(
                             )
                         },
                         trailingIcon = {
-                            if (searchQuery.isNotEmpty()) {
-                                IconButton(
-                                    onClick = { onSearchChange("") }
-                                ) {
+                            AnimatedVisibility(
+                                visible = searchQuery.isNotEmpty(),
+                                enter = fadeIn() + scaleIn(),
+                                exit = fadeOut() + scaleOut()
+                            ) {
+                                IconButton(onClick = { onSearchChange("") }) {
                                     Icon(
                                         Icons.Default.Clear,
-                                        contentDescription = "Clear search",
+                                        contentDescription = stringResource(R.string.clear_search),
                                         tint = Color.White.copy(alpha = 0.7f),
                                         modifier = Modifier.size(20.dp)
                                     )
@@ -174,7 +181,7 @@ fun TopAppBar(
                                 contentColor = Color.White
                             ),
                         ) {
-                            Text("Cancel", fontSize = 14.sp)
+                            Text(stringResource(id = R.string.cancel), fontSize = 14.sp)
                         }
                     }
                 }

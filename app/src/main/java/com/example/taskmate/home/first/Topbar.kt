@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.*
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.*
 import com.example.taskmate.R
@@ -42,13 +43,13 @@ fun TopBar() {
                 Spacer(modifier = Modifier.width(16.dp))
                 Column {
                     Text(
-                        text = "TaskMate",
+                        text = stringResource(id = R.string.app_name),
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Bold,
                         color = TaskMateColors.TextPrimary
                     )
                     Text(
-                        text = "Organize your day",
+                        text = stringResource(id = R.string.organize_your_day),
                         fontSize = 14.sp,
                         color = TaskMateColors.TextPrimary.copy(alpha = 0.8f)
                     )

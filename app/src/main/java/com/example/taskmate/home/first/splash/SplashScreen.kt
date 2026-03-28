@@ -10,6 +10,7 @@ import androidx.compose.ui.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.*
@@ -32,14 +33,14 @@ fun SplashScreen() {
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "TaskMate",
+                text = stringResource(id = R.string.app_name),
                 fontSize = 32.sp,
                 fontWeight = FontWeight.Bold,
                 color = TaskMateColors.TextPrimary
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Organize your day",
+                text = stringResource(id = R.string.organize_your_day),
                 fontSize = 16.sp,
                 color = TaskMateColors.TextSecondary
             )

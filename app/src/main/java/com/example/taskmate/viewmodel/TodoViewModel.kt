@@ -6,6 +6,7 @@ import androidx.annotation.RequiresApi
 import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.taskmate.R
 import com.example.taskmate.data.Category
 import com.example.taskmate.data.Priority
 import com.example.taskmate.data.Todo
@@ -169,16 +170,16 @@ data class TaskStatistics(
 )
 
 // Filter enum for better organization
-enum class FilterType(val displayName: String) {
-    ALL("All Tasks"),
-    ACTIVE("Active"),
-    COMPLETED("Completed"),
-    HIGH_PRIORITY("High Priority"),
-    MEDIUM_PRIORITY("Medium Priority"),
-    LOW_PRIORITY("Low Priority"),
-    OVERDUE("Overdue"),
-    TODAY("Due Today"),
-    THIS_WEEK("This Week")
+enum class FilterType(val displayNameRes: Int) {
+    ALL(R.string.filter_type_all_tasks),
+    ACTIVE(R.string.filter_type_active),
+    COMPLETED(R.string.filter_type_completed),
+    HIGH_PRIORITY(R.string.filter_type_high_priority),
+    MEDIUM_PRIORITY(R.string.filter_type_medium_priority),
+    LOW_PRIORITY(R.string.filter_type_low_priority),
+    OVERDUE(R.string.filter_type_overdue),
+    TODAY(R.string.filter_type_today),
+    THIS_WEEK(R.string.filter_type_this_week)
 }
 
 // Extension functions for date handling

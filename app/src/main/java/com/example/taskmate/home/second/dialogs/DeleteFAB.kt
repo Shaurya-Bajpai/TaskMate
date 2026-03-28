@@ -12,6 +12,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
+import com.example.taskmate.R
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -50,7 +52,7 @@ fun DeleteFAB(onClick: () -> Unit) {
             ) {
                 Icon(
                     imageVector = Icons.Default.Delete,
-                    contentDescription = "Delete Selected",
+                    contentDescription = stringResource(R.string.delete),
                     modifier = Modifier.size(24.dp)
                 )
 //                if (selectedCount > 0) {

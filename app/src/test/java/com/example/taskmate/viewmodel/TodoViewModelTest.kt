@@ -51,7 +51,7 @@ class TodoViewModelTest {
             id = 2L,
             title = "Test task",
             priority = Priority.MEDIUM,
-            category = Category.HOME,
+            category = Category.PERSONAL,
             dueDate = 1000L
         )
         coEvery { repository.addTask(any()) } returns 5L

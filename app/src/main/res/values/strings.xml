@@ -2,4 +2,111 @@
     <string name="app_name">TaskMate</string>
     <string name="update_task">Update Task</string>
     <string name="add_task">Add Task</string>
+    <string name="default_task_reminder">Task Reminder</string>
+    <string name="task_reminder_channel_name">Task Reminders</string>
+    <string name="task_reminder_channel_desc">Notifications for due tasks</string>
+    <string name="task_due">Task Due</string>
+
+    <!-- Empty & State Strings -->
+    <string name="empty_state_title">Ready to be productive?</string>
+    <string name="empty_state_desc">Create your first task and start\norganizing your goals!</string>
+    <string name="no_results_found">No results found</string>
+
+    <!-- Top AppBar -->
+    <string name="search_active_placeholder">Search your tasks...</string>
+    <string name="search_inactive_placeholder">Search tasks...</string>
+    <string name="clear_search">Clear search</string>
+
+    <!-- Dialog Actions -->
+    <string name="delete_task_title">Delete Task?</string>
+    <string name="delete_task_desc">Are you sure you want to delete?\nThis action cannot be undone.</string>
+    <string name="exit_title">Exit</string>
+    <string name="exit_desc">Do you want to exit from TaskMate?</string>
+    <string name="set_time">Set Time</string>
+    <string name="delete_selected">Delete Selected</string>
+    <string name="edit_task">Edit Task</string>
+    <string name="create_new_task">Create New Task</string>
+    <string name="task_title_hint">Task Title</string>
+    <string name="task_description_hint">Task Description</string>
+    <string name="description_hint">Description (Optional)</string>
+    <string name="priority_level">Priority Level</string>
+    <string name="category">Category</string>
+    <string name="due_date">Due Date</string>
+    <string name="no_due_date">No due date</string>
+    <string name="set_date">Set Date</string>
+    <string name="clear_date">Clear date</string>
+    <string name="empty_title_error">Please enter a task title</string>
+    <string name="task_item_collapse">Collapse</string>
+    <string name="task_item_expand">Expand</string>
+
+    <!-- Additional Messages -->
+    <string name="tasks_completed_format">%1$d of %2$d tasks completed</string>
+    <string name="no_tasks_match_format">No tasks match \"%1$s\"</string>
+    <string name="organize_prioritize_achieve">Organize • Prioritize • Achieve</string>
+    <string name="organize_your_day">Organize your day</string>
+    <string name="no_tasks_yet">No tasks yet!</string>
+    <string name="add_first_task_desc">Tap the + button to add your first task\nand start organizing your day!</string>
+    <string name="task_description">Task description</string>
+    <string name="description_empty_error">Description cannot be empty</string>
+
+    <!-- Button Strings -->
+    <string name="add">Add</string>
+    <string name="update">Update</string>
+    <string name="create">Create</string>
+    <string name="cancel">Cancel</string>
+    <string name="back">Back</string>
+    <string name="next">Next</string>
+    <string name="ok_button">OK</string>
+    <string name="delete">Delete</string>
+
+    <!-- Priority Strings -->
+    <string name="priority_high">High</string>
+    <string name="priority_medium">Medium</string>
+    <string name="priority_low">Low</string>
+
+    <!-- Filter Type Strings -->
+    <string name="filter_all">All</string>
+    <string name="filter_active">Active</string>
+    <string name="filter_done">Done</string>
+    <string name="filter_high">High</string>
+    <string name="filter_medium">Medium</string>
+    <string name="filter_low">Low</string>
+
+    <!-- Category Strings -->
+    <string name="category_work">Work</string>
+    <string name="category_personal">Personal</string>
+    <string name="category_shopping">Shopping</string>
+    <string name="category_health">Health</string>
+    <string name="category_education">Education</string>
+    <string name="category_entertainment">Entertainment</string>
+    <string name="category_travel">Travel</string>
+    <string name="category_other">Other</string>
+
+    <!-- Emoji Strings -->
+    <string name="emoji_work">💼</string>
+    <string name="emoji_personal">👤</string>
+    <string name="emoji_shopping">🛒</string>
+    <string name="emoji_health">🏥</string>
+    <string name="emoji_education">📚</string>
+    <string name="emoji_entertainment">🎬</string>
+    <string name="emoji_travel">✈️</string>
+    <string name="emoji_other">📌</string>
+    <string name="emoji_productive">🎯</string>
+    <string name="emoji_edit">✏️</string>
+    <string name="emoji_create">✨</string>
+    <string name="emoji_organize">✨</string>
+
+    <!-- Date Format Pattern -->
+    <string name="date_format_pattern">MMM dd, hh:mm a</string>
+
+    <!-- FilterType Display Names -->
+    <string name="filter_type_all_tasks">All Tasks</string>
+    <string name="filter_type_active">Active</string>
+    <string name="filter_type_completed">Completed</string>
+    <string name="filter_type_high_priority">High Priority</string>
+    <string name="filter_type_medium_priority">Medium Priority</string>
+    <string name="filter_type_low_priority">Low Priority</string>
+    <string name="filter_type_overdue">Overdue</string>
+    <string name="filter_type_today">Due Today</string>
+    <string name="filter_type_this_week">This Week</string>
 </resources>

@@ -7,8 +7,10 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.taskmate.R
 import com.example.taskmate.color.TaskMateColors
 
 @Composable
@@ -23,16 +25,10 @@ fun DeleteDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
                 modifier = Modifier.size(32.dp)
             )
         },
-        title = {
-            Text(
-                text = "Delete Task",
-                color = TaskMateColors.TextPrimary,
-                fontWeight = FontWeight.Bold
-            )
-        },
+        title = { Text(stringResource(id = R.string.delete_task_title), color = TaskMateColors.TextPrimary, fontWeight = FontWeight.Bold) },
         text = {
             Text(
-                text = "Are you sure you want to delete this task? This action cannot be undone.",
+                text = stringResource(id = R.string.delete_task_desc),
                 color = TaskMateColors.TextSecondary
             )
         },
@@ -44,17 +40,12 @@ fun DeleteDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
                 ),
                 shape = RoundedCornerShape(8.dp)
             ) {
-                Text("Delete", color = TaskMateColors.TextPrimary)
+                Text(stringResource(id = R.string.delete), color = TaskMateColors.TextPrimary)
             }
         },
         dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                colors = ButtonDefaults.textButtonColors(
-                    contentColor = TaskMateColors.TextSecondary
-                )
-            ) {
-                Text("Cancel")
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(id = R.string.cancel), color = TaskMateColors.TextSecondary)
             }
         },
         containerColor = TaskMateColors.SurfaceDark,

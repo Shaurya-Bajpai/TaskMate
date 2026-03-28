@@ -17,7 +17,10 @@ import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
+import com.example.taskmate.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -39,6 +42,7 @@ fun TodoItem(
 ) {
     var expanded by remember { mutableStateOf(false) }
     val hapticFeedback = LocalHapticFeedback.current
+    val context = LocalContext.current
 
     val animatedAlpha by animateFloatAsState(
         targetValue = if (todo.isCompleted) 0.7f else 1f,
@@ -129,7 +133,7 @@ fun TodoItem(
                     Column(modifier = Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = todo.category.icon,
+                                text = stringResource(todo.category.icon),
                                 fontSize = 16.sp,
                                 modifier = Modifier.padding(end = 8.dp)
                             )
@@ -156,7 +160,7 @@ fun TodoItem(
                                 color = getPriorityColor(todo.priority).copy(alpha = 0.2f)
                             ) {
                                 Text(
-                                    text = todo.priority.displayName,
+                                    text = stringResource(todo.priority.displayName),
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Medium,
@@ -172,7 +176,7 @@ fun TodoItem(
                                     color = if (isOverdue) Color(0xFFEF4444).copy(alpha = 0.2f) else Color(0xFF6B7280).copy(alpha = 0.2f)
                                 ) {
                                     Text(
-                                        text = formatDate(dueDate),
+                                        text = formatDate(context, dueDate),
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                         fontSize = 10.sp,
                                         color = if (isOverdue) Color(0xFFEF4444) else Color.White.copy(alpha = 0.7f)
@@ -201,7 +205,7 @@ fun TodoItem(
                                 IconButton(onClick = { expanded = !expanded }, modifier = Modifier.size(24.dp)) {
                                     Icon(
                                         imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                                        contentDescription = if (expanded) "Collapse" else "Expand",
+                                        contentDescription = if (expanded) stringResource(R.string.task_item_collapse) else stringResource(R.string.task_item_expand),
                                         tint = Color.White.copy(alpha = 0.6f),
                                         modifier = Modifier.size(16.dp)
                                     )

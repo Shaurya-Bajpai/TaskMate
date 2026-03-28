@@ -8,8 +8,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.taskmate.R
 
 @Composable
 fun DeleteDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
@@ -25,14 +27,14 @@ fun DeleteDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
         },
         title = {
             Text(
-                text = "Delete Task?",
+                text = stringResource(id = R.string.delete_task_title),
                 color = Color.White,
                 fontWeight = FontWeight.Bold
             )
         },
         text = {
             Text(
-                text = "Are you sure you want to delete? \nThis action cannot be undone.",
+                text = stringResource(id = R.string.delete_task_desc),
                 color = Color.White.copy(alpha = 0.8f)
             )
         },
@@ -44,7 +46,7 @@ fun DeleteDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
                 ),
                 shape = RoundedCornerShape(8.dp)
             ) {
-                Text("Delete", color = Color.White)
+                Text(stringResource(id = R.string.delete), color = Color.White)
             }
         },
         dismissButton = {
@@ -54,7 +56,7 @@ fun DeleteDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
                     contentColor = Color.White.copy(alpha = 0.7f)
                 )
             ) {
-                Text("Cancel")
+                Text(stringResource(id = R.string.cancel))
             }
         },
         containerColor = Color(0xFF2D3748),

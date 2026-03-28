@@ -9,9 +9,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.*
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.*
-
+import com.example.taskmate.R
 
 @Composable
 fun SelectionModeHeader(selectedCount: Int, onClearSelection: () -> Unit, onDeleteSelected: () -> Unit) {
@@ -54,7 +55,7 @@ fun SelectionModeHeader(selectedCount: Int, onClearSelection: () -> Unit, onDele
                         contentColor = Color.White.copy(alpha = 0.7f)
                     )
                 ) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.cancel))
                 }
 
                 Button(
@@ -70,7 +71,7 @@ fun SelectionModeHeader(selectedCount: Int, onClearSelection: () -> Unit, onDele
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Delete")
+                    Text(stringResource(R.string.delete))
                 }
             }
         }
