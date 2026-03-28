@@ -9,7 +9,7 @@ import com.example.taskmate.data.Category
 import com.example.taskmate.data.Priority
 import com.example.taskmate.data.Todo
 import com.example.taskmate.database.TodoRepository
-import com.example.taskmate.graph.Graph
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,8 +17,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import java.util.Calendar
+import javax.inject.Inject
 
-class TodoViewModel(private val repository: TodoRepository) : ViewModel() {
+@HiltViewModel
+class TodoViewModel @Inject constructor(private val repository: TodoRepository) : ViewModel() {
     // UI State
     private val _uiState = MutableStateFlow(TodoUiState())
     val uiState: StateFlow<TodoUiState> = _uiState.asStateFlow()

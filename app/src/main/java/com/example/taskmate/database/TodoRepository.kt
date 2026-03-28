@@ -3,8 +3,9 @@ package com.example.taskmate.database
 import com.example.taskmate.data.Category
 import com.example.taskmate.data.Todo
 import kotlinx.coroutines.flow.Flow
+import javax.inject.Inject
 
-class TodoRepository(private val todoDao: TodoDao) {
+class TodoRepository @Inject constructor(private val todoDao: TodoDao) {
 
     suspend fun addTask(todo: Todo) = todoDao.addTask(todo)
 
