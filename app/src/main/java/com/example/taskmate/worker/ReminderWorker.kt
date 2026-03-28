@@ -34,6 +34,17 @@ class ReminderWorker @AssistedInject constructor(
     private fun showNotification(title: String, notificationId: Int) {
         val channelId = "task_reminder_channel"
 
+        val intent = android.content.Intent(applicationContext, Class.forName("com.example.taskmate.MainActivity")).apply {
+            flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK
+            putExtra("taskId", notificationId.toLong())
+        }
+        val pendingIntent: android.app.PendingIntent = android.app.PendingIntent.getActivity(
+            applicationContext, 
+            notificationId, 
+            intent, 
+            android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val name = "Task Reminders"
             val descriptionText = "Notifications for due tasks"
@@ -50,6 +61,8 @@ class ReminderWorker @AssistedInject constructor(
             .setSmallIcon(android.R.drawable.ic_dialog_info) // Fallback icon
             .setContentTitle("Task Due")
             .setContentText(title)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
