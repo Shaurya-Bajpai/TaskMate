@@ -6,6 +6,9 @@
     <string name="task_reminder_channel_name">Task Reminders</string>
     <string name="task_reminder_channel_desc">Notifications for due tasks</string>
     <string name="task_due">Task Due</string>
+    <string name="task_due_soon">Task Due Soon</string>
+    <string name="task_due_soon_format">Due in %1$d min</string>
+    <string name="task_due_soon_days_format">Due in %1$d day(s)</string>
 
     <!-- Empty & State Strings -->
     <string name="empty_state_title">Ready to be productive?</string>
@@ -35,6 +38,15 @@
     <string name="no_due_date">No due date</string>
     <string name="set_date">Set Date</string>
     <string name="clear_date">Clear date</string>
+    <string name="remind_me">Remind Me</string>
+
+    <!-- Reminder Offset Strings -->
+    <string name="reminder_at_due_time">At due time</string>
+    <string name="reminder_5_min_before">5 min before</string>
+    <string name="reminder_15_min_before">15 min before</string>
+    <string name="reminder_30_min_before">30 min before</string>
+    <string name="reminder_1_hour_before">1 hour before</string>
+    <string name="reminder_1_day_before">1 day before</string>
     <string name="empty_title_error">Please enter a task title</string>
     <string name="task_item_collapse">Collapse</string>
     <string name="task_item_expand">Expand</string>

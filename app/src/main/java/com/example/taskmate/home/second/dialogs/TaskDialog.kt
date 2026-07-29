@@ -27,6 +27,7 @@ import com.example.taskmate.R
 import com.example.taskmate.data.*
 import com.example.taskmate.home.second.chips.CategoryChip
 import com.example.taskmate.home.second.chips.PriorityChip
+import com.example.taskmate.home.second.chips.ReminderOffsetChip
 import com.example.taskmate.home.second.formatDate
 import java.util.Calendar
 
@@ -43,6 +44,10 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
     var activePickerDialog by remember { mutableIntStateOf(0) }
     
     var selectedDate by remember { mutableStateOf(todo?.dueDate) }
+
+    var selectedReminderOffset by remember {
+        mutableStateOf(ReminderOffset.fromMinutes(todo?.reminderOffsetMinutes))
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -364,6 +369,31 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
                     }
                 }
 
+                if (selectedDate != null) {
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    // Reminder Offset Selection
+                    Text(
+                        text = stringResource(id = R.string.remind_me),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.White,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(ReminderOffset.entries.toTypedArray()) { offset ->
+                            ReminderOffsetChip(
+                                offset = offset,
+                                isSelected = selectedReminderOffset == offset,
+                                onClick = { selectedReminderOffset = offset }
+                            )
+                        }
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(32.dp))
 
                 // Action Buttons
@@ -392,6 +422,7 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
                                     priority = selectedPriority,
                                     category = selectedCategory,
                                     dueDate = selectedDate,
+                                    reminderOffsetMinutes = selectedDate?.let { selectedReminderOffset.minutes },
                                     isCompleted = todo?.isCompleted ?: false,
                                     createdAt = todo?.createdAt ?: System.currentTimeMillis()
                                 )
