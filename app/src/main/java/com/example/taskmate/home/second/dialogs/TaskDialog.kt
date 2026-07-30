@@ -5,6 +5,8 @@ import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -15,6 +17,7 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -40,16 +43,13 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
     var description by remember { mutableStateOf(todo?.description ?: "") }
     var selectedPriority by remember { mutableStateOf(todo?.priority ?: Priority.MEDIUM) }
     var selectedCategory by remember { mutableStateOf(todo?.category ?: Category.PERSONAL) }
-    
-    // 0 = None, 1 = DatePicker, 2 = TimePicker
-    var activePickerDialog by remember { mutableIntStateOf(0) }
-    
     var selectedDate by remember { mutableStateOf(todo?.dueDate) }
 
     var selectedReminderOffset by remember {
         mutableStateOf(ReminderOffset.fromMinutes(todo?.reminderOffsetMinutes))
     }
     var selectedReminderType by remember { mutableStateOf(todo?.reminderType ?: ReminderType.NOTIFICATION) }
+    var showScheduleDialog by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -62,147 +62,19 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
         }
     }
 
-    // Create a unified Dialog for Date and Time Pickers to prevent flicker
-    if (activePickerDialog != 0) {
-        val today = remember {
-            Calendar.getInstance().apply {
-                set(Calendar.HOUR_OF_DAY, 0)
-                set(Calendar.MINUTE, 0)
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-            }.timeInMillis
-        }
-
-        val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = selectedDate ?: today
-        )
-        
-        val initialCal = remember { Calendar.getInstance() }
-        val timePickerState = rememberTimePickerState(
-            initialHour = if (selectedDate != null) {
-                val cal = Calendar.getInstance()
-                cal.timeInMillis = selectedDate!!
-                cal.get(Calendar.HOUR_OF_DAY)
-            } else initialCal.get(Calendar.HOUR_OF_DAY),
-            initialMinute = if (selectedDate != null) {
-                val cal = Calendar.getInstance()
-                cal.timeInMillis = selectedDate!!
-                cal.get(Calendar.MINUTE)
-            } else initialCal.get(Calendar.MINUTE)
-        )
-
-        var initialDate by remember { mutableStateOf(datePickerState.selectedDateMillis) }
-        
-        // Auto-transition to time picker when a new date is selected
-        LaunchedEffect(datePickerState.selectedDateMillis) {
-            if (activePickerDialog == 1 && datePickerState.selectedDateMillis != initialDate) {
-                selectedDate = datePickerState.selectedDateMillis
-                activePickerDialog = 2
-                initialDate = datePickerState.selectedDateMillis
+    if (showScheduleDialog) {
+        ScheduleDialog(
+            initialDate = selectedDate,
+            initialReminderType = selectedReminderType,
+            initialReminderOffset = selectedReminderOffset,
+            onDismiss = { showScheduleDialog = false },
+            onConfirm = { date, reminderType, reminderOffset ->
+                selectedDate = date
+                selectedReminderType = reminderType
+                selectedReminderOffset = reminderOffset
+                showScheduleDialog = false
             }
-        }
-
-        DatePickerDialog(
-            onDismissRequest = { activePickerDialog = 0 },
-            confirmButton = {
-                if (activePickerDialog == 1) {
-                    TextButton(onClick = {
-                        selectedDate = datePickerState.selectedDateMillis
-                        activePickerDialog = 2
-                    }) {
-                        Text(stringResource(id = R.string.next), color = Color(0xFF6366F1))
-                    }
-                } else if (activePickerDialog == 2) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        TextButton(onClick = { activePickerDialog = 1 }) {
-                            Text(stringResource(id = R.string.back), color = Color.White.copy(alpha = 0.7f))
-                        }
-                        TextButton(onClick = {
-                            val cal = Calendar.getInstance()
-                            selectedDate?.let { cal.timeInMillis = it }
-                            cal.set(Calendar.HOUR_OF_DAY, timePickerState.hour)
-                            cal.set(Calendar.MINUTE, timePickerState.minute)
-                            cal.set(Calendar.SECOND, 0)
-                            selectedDate = cal.timeInMillis
-                            activePickerDialog = 0
-                        }) {
-                            Text(stringResource(id = R.string.ok_button), color = Color(0xFF6366F1))
-                        }
-                    }
-                }
-            },
-            dismissButton = {
-                if (activePickerDialog == 1) {
-                    TextButton(onClick = { activePickerDialog = 0 }) {
-                        Text(stringResource(id = R.string.cancel), color = Color.White.copy(alpha = 0.7f))
-                    }
-                }
-            },
-            colors = DatePickerDefaults.colors(
-                containerColor = Color(0xFF2D3748)
-            )
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = if (activePickerDialog == 2) 16.dp else 0.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                if (activePickerDialog == 1) {
-                    DatePicker(
-                        state = datePickerState,
-                        colors = DatePickerDefaults.colors(
-                            containerColor = Color(0xFF2D3748),
-                            titleContentColor = Color.White,
-                            headlineContentColor = Color.White,
-                            weekdayContentColor = Color.White,
-                            subheadContentColor = Color.White,
-                            yearContentColor = Color.White,
-                            currentYearContentColor = Color(0xFF6366F1),
-                            selectedYearContentColor = Color.White,
-                            selectedYearContainerColor = Color(0xFF6366F1),
-                            dayContentColor = Color.White,
-                            selectedDayContentColor = Color.White,
-                            selectedDayContainerColor = Color(0xFF6366F1),
-                            todayContentColor = Color(0xFF6366F1),
-                            todayDateBorderColor = Color(0xFF6366F1)
-                        )
-                    )
-                } else if (activePickerDialog == 2) {
-                    Text(
-                        text = stringResource(id = R.string.set_time),
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    )
-
-                    TimePicker(
-                        state = timePickerState,
-                        colors = TimePickerDefaults.colors(
-                            clockDialColor = Color(0xFF374151),
-                            clockDialSelectedContentColor = Color.White,
-                            clockDialUnselectedContentColor = Color.White,
-                            selectorColor = Color(0xFF6366F1),
-                            containerColor = Color(0xFF2D3748),
-                            periodSelectorBorderColor = Color(0xFF6366F1),
-                            periodSelectorSelectedContainerColor = Color(0xFF6366F1),
-                            periodSelectorUnselectedContainerColor = Color.Transparent,
-                            periodSelectorSelectedContentColor = Color.White,
-                            periodSelectorUnselectedContentColor = Color.White,
-                            timeSelectorSelectedContainerColor = Color(0xFF6366F1),
-                            timeSelectorUnselectedContainerColor = Color(0xFF374151),
-                            timeSelectorSelectedContentColor = Color.White,
-                            timeSelectorUnselectedContentColor = Color.White
-                        )
-                    )
-                }
-            }
-        }
+        )
     }
 
     AlertDialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
@@ -230,7 +102,12 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
-                    label = { Text(stringResource(id = R.string.task_title_hint), color = Color.White.copy(alpha = 0.7f)) },
+                    label = {
+                        Text(
+                            stringResource(id = R.string.task_title_hint),
+                            color = Color.White.copy(alpha = 0.7f)
+                        )
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = Color.White,
@@ -253,7 +130,12 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
-                    label = { Text(stringResource(id = R.string.description_hint), color = Color.White.copy(alpha = 0.7f)) },
+                    label = {
+                        Text(
+                            stringResource(id = R.string.description_hint),
+                            color = Color.White.copy(alpha = 0.7f)
+                        )
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 2,
                     maxLines = 3,
@@ -265,19 +147,16 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
                         unfocusedBorderColor = Color.White.copy(alpha = 0.3f)
                     ),
                     shape = RoundedCornerShape(12.dp),
-                    keyboardOptions = KeyboardOptions.Default.copy(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done)
+                    keyboardOptions = KeyboardOptions.Default.copy(
+                        capitalization = KeyboardCapitalization.Sentences,
+                        imeAction = ImeAction.Done
+                    )
                 )
 
-                Spacer(modifier = Modifier.height(20.dp))
+                SectionDivider()
 
                 // Priority Selection
-                Text(
-                    text = stringResource(id = R.string.priority_level),
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.White,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
+                SectionLabel(text = stringResource(id = R.string.priority_level))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -293,16 +172,10 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
                     }
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                SectionDivider()
 
                 // Category Selection
-                Text(
-                    text = stringResource(id = R.string.category),
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.White,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
+                SectionLabel(text = stringResource(id = R.string.category))
 
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -316,110 +189,61 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
                     }
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                SectionDivider()
 
-                // Due Date Selection - FIXED DATE PICKER
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = stringResource(id = R.string.due_date),
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Color.White
-                        )
-                        Text(
-                            text = selectedDate?.let { formatDate(context, it) } ?: stringResource(id = R.string.no_due_date),
-                            fontSize = 12.sp,
-                            color = Color.White.copy(alpha = 0.7f)
-                        )
-                    }
+                SectionLabel(text = stringResource(id = R.string.schedule_label))
 
-                    Row {
-                        Button(
-                            onClick = { activePickerDialog = 1 },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF6366F1)
-                            ),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.DateRange,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(stringResource(id = R.string.set_date), color = Color.White)
-                        }
-
-                        if (selectedDate != null) {
-                            Spacer(modifier = Modifier.width(8.dp))
-                            IconButton(
-                                onClick = { selectedDate = null }
-                            ) {
-                                Icon(
-                                    Icons.Default.Clear,
-                                    contentDescription = stringResource(id = R.string.clear_date),
-                                    tint = Color(0xFFEF4444),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        }
+                val scheduleSummary = if (selectedDate == null) {
+                    stringResource(id = R.string.no_schedule_set)
+                } else {
+                    val dateStr = formatDate(context, selectedDate!!)
+                    if (selectedReminderType == ReminderType.NONE) {
+                        dateStr
+                    } else {
+                        val typeLabel = stringResource(id = selectedReminderType.displayName)
+                        val offsetLabel = stringResource(id = selectedReminderOffset.displayName)
+                        "$dateStr · $typeLabel · $offsetLabel"
                     }
                 }
 
-                if (selectedDate != null) {
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    // Reminder Type Selection
-                    Text(
-                        text = stringResource(id = R.string.reminder_type_label),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Color.White,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-
+                // Due Date Selection - FIXED DATE PICKER
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .clickable { showScheduleDialog = true },
+                    shape = RoundedCornerShape(16.dp),
+                    color = if (selectedDate != null) Color(0xFF6366F1).copy(alpha = 0.14f) else Color(
+                        0xFF1E293B
+                    ),
+                ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        ReminderType.entries.forEach { type ->
-                            ReminderTypeChip(
-                                type = type,
-                                isSelected = selectedReminderType == type,
-                                onClick = { selectedReminderType = type },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    }
-
-                    if (selectedReminderType != ReminderType.NONE) {
-                        Spacer(modifier = Modifier.height(20.dp))
-
-                        // Reminder Offset Selection
+                        Icon(
+                            Icons.Default.DateRange,
+                            contentDescription = null,
+                            tint = if (selectedDate != null) Color(0xFF6366F1) else Color.White.copy(alpha = 0.6f)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
                         Text(
-                            text = stringResource(id = R.string.remind_me),
-                            fontSize = 16.sp,
+                            text = scheduleSummary,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
                             color = Color.White,
-                            modifier = Modifier.padding(bottom = 8.dp)
+                            modifier = Modifier.weight(1f)
                         )
-
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            items(ReminderOffset.entries.toTypedArray()) { offset ->
-                                ReminderOffsetChip(
-                                    offset = offset,
-                                    isSelected = selectedReminderOffset == offset,
-                                    onClick = { selectedReminderOffset = offset }
-                                )
-                            }
-                        }
+                        Text(
+                            text = stringResource(
+                                id = if (selectedDate != null) R.string.edit_schedule else R.string.set_schedule
+                            ),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF6366F1)
+                        )
                     }
                 }
 
@@ -477,4 +301,21 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
             }
         }
     }
+}
+
+@Composable
+fun SectionLabel(text: String) {
+    Text(
+        text = text.uppercase(),
+        fontSize = 12.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 0.8.sp,
+        color = Color.White.copy(alpha = 0.55f),
+        modifier = Modifier.padding(bottom = 10.dp)
+    )
+}
+
+@Composable
+fun SectionDivider() {
+    Spacer(modifier = Modifier.height(20.dp))
 }

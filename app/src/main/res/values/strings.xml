@@ -39,6 +39,11 @@
     <string name="set_date">Set Date</string>
     <string name="clear_date">Clear date</string>
     <string name="remind_me">Remind Me</string>
+    <string name="schedule_label">Schedule</string>
+    <string name="no_schedule_set">No schedule set</string>
+    <string name="set_schedule">Set Schedule</string>
+    <string name="edit_schedule">Edit</string>
+    <string name="done">Done</string>
 
     <!-- Reminder Offset Strings -->
     <string name="reminder_at_due_time">At due time</string>
