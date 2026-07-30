@@ -47,6 +47,19 @@
     <string name="reminder_30_min_before">30 min before</string>
     <string name="reminder_1_hour_before">1 hour before</string>
     <string name="reminder_1_day_before">1 day before</string>
+
+    <!-- Reminder Type Strings -->
+    <string name="reminder_type_label">Reminder Type</string>
+    <string name="reminder_type_none">None</string>
+    <string name="reminder_type_notification">Notification</string>
+    <string name="reminder_type_alarm">Alarm</string>
+
+    <!-- Alarm Strings -->
+    <string name="task_alarm_title">Task Alarm</string>
+    <string name="task_alarm_channel_name">Task Alarms</string>
+    <string name="task_alarm_channel_desc">Alarm-style reminders for tasks</string>
+    <string name="dismiss">Dismiss</string>
+    <string name="snooze">Snooze 5 min</string>
     <string name="empty_title_error">Please enter a task title</string>
     <string name="task_item_collapse">Collapse</string>
     <string name="task_item_expand">Expand</string>

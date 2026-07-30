@@ -28,6 +28,7 @@ import com.example.taskmate.data.*
 import com.example.taskmate.home.second.chips.CategoryChip
 import com.example.taskmate.home.second.chips.PriorityChip
 import com.example.taskmate.home.second.chips.ReminderOffsetChip
+import com.example.taskmate.home.second.chips.ReminderTypeChip
 import com.example.taskmate.home.second.formatDate
 import java.util.Calendar
 
@@ -48,6 +49,7 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
     var selectedReminderOffset by remember {
         mutableStateOf(ReminderOffset.fromMinutes(todo?.reminderOffsetMinutes))
     }
+    var selectedReminderType by remember { mutableStateOf(todo?.reminderType ?: ReminderType.NOTIFICATION) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -372,24 +374,51 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
                 if (selectedDate != null) {
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    // Reminder Offset Selection
+                    // Reminder Type Selection
                     Text(
-                        text = stringResource(id = R.string.remind_me),
+                        text = stringResource(id = R.string.reminder_type_label),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium,
                         color = Color.White,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
 
-                    LazyRow(
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(ReminderOffset.entries.toTypedArray()) { offset ->
-                            ReminderOffsetChip(
-                                offset = offset,
-                                isSelected = selectedReminderOffset == offset,
-                                onClick = { selectedReminderOffset = offset }
+                        ReminderType.entries.forEach { type ->
+                            ReminderTypeChip(
+                                type = type,
+                                isSelected = selectedReminderType == type,
+                                onClick = { selectedReminderType = type },
+                                modifier = Modifier.weight(1f)
                             )
+                        }
+                    }
+
+                    if (selectedReminderType != ReminderType.NONE) {
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        // Reminder Offset Selection
+                        Text(
+                            text = stringResource(id = R.string.remind_me),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.White,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(ReminderOffset.entries.toTypedArray()) { offset ->
+                                ReminderOffsetChip(
+                                    offset = offset,
+                                    isSelected = selectedReminderOffset == offset,
+                                    onClick = { selectedReminderOffset = offset }
+                                )
+                            }
                         }
                     }
                 }
@@ -423,6 +452,7 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
                                     category = selectedCategory,
                                     dueDate = selectedDate,
                                     reminderOffsetMinutes = selectedDate?.let { selectedReminderOffset.minutes },
+                                    reminderType = if (selectedDate != null) selectedReminderType else ReminderType.NONE,
                                     isCompleted = todo?.isCompleted ?: false,
                                     createdAt = todo?.createdAt ?: System.currentTimeMillis()
                                 )

@@ -3,8 +3,10 @@ package com.example.taskmate.viewmodel
 import android.content.Context
 import com.example.taskmate.data.Category
 import com.example.taskmate.data.Priority
+import com.example.taskmate.data.ReminderType
 import com.example.taskmate.data.Todo
 import com.example.taskmate.database.TodoRepository
+import com.example.taskmate.worker.AlarmScheduler
 import com.example.taskmate.worker.ReminderWorker
 import io.mockk.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -35,6 +37,10 @@ class TodoViewModelTest {
         mockkObject(ReminderWorker)
         every { ReminderWorker.scheduleReminder(any(), any()) } just Runs
         every { ReminderWorker.cancelReminder(any(), any()) } just Runs
+
+        mockkObject(AlarmScheduler)
+        every { AlarmScheduler.scheduleAlarm(any(), any()) } just Runs
+        every { AlarmScheduler.cancelAlarm(any(), any()) } just Runs
 
         viewModel = TodoViewModel(repository, mockContext)
     }
@@ -112,6 +118,7 @@ class TodoViewModelTest {
         // Assert
         coVerify { repository.updateTask(todo) }
         verify { ReminderWorker.cancelReminder(mockContext, 1L) }
+        verify { AlarmScheduler.cancelAlarm(mockContext, 1L) }
         verify(exactly = 0) { ReminderWorker.scheduleReminder(any(), any()) }
     }
 
@@ -126,6 +133,41 @@ class TodoViewModelTest {
         // Assert
         coVerify { repository.deleteTask(todo) }
         verify { ReminderWorker.cancelReminder(mockContext, 3L) }
+        verify { AlarmScheduler.cancelAlarm(mockContext, 3L) }
+    }
+
+    @Test
+    fun addTask_alarmType_schedulesAlarmNotNotification() = runTest {
+        // Arrange
+        val todo = Todo(
+            id = 4L,
+            title = "Alarm task",
+            dueDate = 1000L,
+            reminderType = ReminderType.ALARM
+        )
+        coEvery { repository.addTask(any()) } returns 6L
+
+        // Act
+        viewModel.addTask(todo)
+
+        // Assert
+        verify { AlarmScheduler.scheduleAlarm(mockContext, todo.copy(id = 6L)) }
+        verify(exactly = 0) { ReminderWorker.scheduleReminder(any(), any()) }
+    }
+
+    @Test
+    fun updateTask_noneType_cancelsBothReminders() = runTest {
+        // Arrange
+        val todo = Todo(id = 5L, isCompleted = false, reminderType = ReminderType.NONE)
+
+        // Act
+        viewModel.updateTask(todo)
+
+        // Assert
+        verify { ReminderWorker.cancelReminder(mockContext, 5L) }
+        verify { AlarmScheduler.cancelAlarm(mockContext, 5L) }
+        verify(exactly = 0) { ReminderWorker.scheduleReminder(any(), any()) }
+        verify(exactly = 0) { AlarmScheduler.scheduleAlarm(any(), any()) }
     }
 }
 

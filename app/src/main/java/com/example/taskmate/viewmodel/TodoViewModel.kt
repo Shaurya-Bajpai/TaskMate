@@ -9,8 +9,10 @@ import androidx.lifecycle.viewModelScope
 import com.example.taskmate.R
 import com.example.taskmate.data.Category
 import com.example.taskmate.data.Priority
+import com.example.taskmate.data.ReminderType
 import com.example.taskmate.data.Todo
 import com.example.taskmate.database.TodoRepository
+import com.example.taskmate.worker.AlarmScheduler
 import com.example.taskmate.worker.ReminderWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -56,7 +58,7 @@ class TodoViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val newId: Long = repository.addTask(todo)
-                ReminderWorker.scheduleReminder(context, todo.copy(id = newId))
+                applyReminder(todo.copy(id = newId))
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     errorMessage = null
@@ -75,9 +77,9 @@ class TodoViewModel @Inject constructor(
             try {
                 repository.updateTask(todo)
                 if (todo.isCompleted) {
-                    ReminderWorker.cancelReminder(context, todo.id)
+                    cancelAllReminders(todo.id)
                 } else {
-                    ReminderWorker.scheduleReminder(context, todo)
+                    applyReminder(todo)
                 }
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
@@ -96,7 +98,7 @@ class TodoViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 repository.deleteTask(todo)
-                ReminderWorker.cancelReminder(context, todo.id)
+                cancelAllReminders(todo.id)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     errorMessage = null
@@ -108,6 +110,24 @@ class TodoViewModel @Inject constructor(
                 )
             }
         }
+    }
+    private fun applyReminder(todo: Todo) {
+        when (todo.reminderType) {
+            ReminderType.NONE -> cancelAllReminders(todo.id)
+            ReminderType.NOTIFICATION -> {
+                AlarmScheduler.cancelAlarm(context, todo.id)
+                ReminderWorker.scheduleReminder(context, todo)
+            }
+            ReminderType.ALARM -> {
+                ReminderWorker.cancelReminder(context, todo.id)
+                AlarmScheduler.scheduleAlarm(context, todo)
+            }
+        }
+    }
+
+    private fun cancelAllReminders(taskId: Long) {
+        ReminderWorker.cancelReminder(context, taskId)
+        AlarmScheduler.cancelAlarm(context, taskId)
     }
 
     fun toggleTaskCompletion(todo: Todo) {
