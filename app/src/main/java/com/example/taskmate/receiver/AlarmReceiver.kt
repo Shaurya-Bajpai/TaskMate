@@ -17,6 +17,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.example.taskmate.R
 import com.example.taskmate.alarm.AlarmRingActivity
+import com.example.taskmate.notification.NotificationIcons
 
 class AlarmReceiver : BroadcastReceiver() {
 
@@ -41,7 +42,9 @@ class AlarmReceiver : BroadcastReceiver() {
         )
 
         val notification = NotificationCompat.Builder(context, ALARM_CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setSmallIcon(R.drawable.ic_notification_small)
+            .setLargeIcon(NotificationIcons.appLargeIcon(context))
+            .setColor(ContextCompat.getColor(context, R.color.notification_accent))
             .setContentTitle(context.getString(R.string.task_alarm_title))
             .setContentText(taskTitle)
             .setPriority(NotificationCompat.PRIORITY_MAX)

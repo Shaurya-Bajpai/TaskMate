@@ -12,16 +12,28 @@ import android.os.Vibrator
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -121,6 +133,17 @@ class AlarmRingActivity : ComponentActivity() {
 
 @Composable
 private fun AlarmRingScreen(taskTitle: String, onDismiss: () -> Unit, onSnooze: () -> Unit) {
+    val infiniteTransition = rememberInfiniteTransition(label = "alarmPulse")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.15f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 900, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulseScale"
+    )
+
     Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF0F172A)) {
         Column(
             modifier = Modifier
@@ -131,15 +154,17 @@ private fun AlarmRingScreen(taskTitle: String, onDismiss: () -> Unit, onSnooze: 
         ) {
             Box(
                 modifier = Modifier
-                    .size(96.dp)
-                    .background(Color(0xFF6366F1), shape = RoundedCornerShape(48.dp)),
+                    .size(180.dp)
+                    .scale(pulseScale)
+                    .background(Color(0xFF6366F1).copy(alpha = 0.16f), shape = CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Default.Notifications,
+                Image(
+                    painter = painterResource(id = R.mipmap.ic_launcher_round),
                     contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(48.dp)
+                    modifier = Modifier
+                        .size(128.dp)
+                        .clip(CircleShape)
                 )
             }
 

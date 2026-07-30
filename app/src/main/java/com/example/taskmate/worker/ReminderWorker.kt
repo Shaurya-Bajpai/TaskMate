@@ -9,10 +9,12 @@ import android.annotation.SuppressLint
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.ContextCompat.getColor
 import androidx.hilt.work.HiltWorker
 import androidx.work.*
 import com.example.taskmate.data.Todo
 import com.example.taskmate.R
+import com.example.taskmate.notification.NotificationIcons
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import java.util.concurrent.TimeUnit
@@ -75,7 +77,9 @@ class ReminderWorker @AssistedInject constructor(
         }
 
         val builder = NotificationCompat.Builder(applicationContext, channelId)
-            .setSmallIcon(android.R.drawable.ic_dialog_info) // Fallback icon
+            .setSmallIcon(R.drawable.ic_notification_small)
+            .setLargeIcon(NotificationIcons.appLargeIcon(applicationContext))
+            .setColor(getColor(applicationContext, R.color.notification_accent))
             .setContentTitle(contentTitle)
             .setContentText(contentText)
             .setContentIntent(pendingIntent)

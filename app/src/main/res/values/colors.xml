@@ -8,4 +8,5 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
     <color name="topbar_color">#2F78C5</color>
+    <color name="notification_accent">#FF6366F1</color>
 </resources>
