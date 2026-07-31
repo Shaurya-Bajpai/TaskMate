@@ -33,6 +33,7 @@ import com.example.taskmate.home.second.chips.ReminderOffsetChip
 import com.example.taskmate.home.second.chips.ReminderTypeChip
 import com.example.taskmate.home.second.formatDate
 import java.util.Calendar
+import java.util.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,11 +57,14 @@ fun ScheduleDialog(
     // Create a unified Dialog for Date and Time Pickers to prevent flicker
     if (activePickerDialog != 0) {
         val today = remember {
-            Calendar.getInstance().apply {
-                set(Calendar.HOUR_OF_DAY, 0)
-                set(Calendar.MINUTE, 0)
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
+            val localNow = Calendar.getInstance()
+            Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+                clear()
+                set(
+                    localNow.get(Calendar.YEAR),
+                    localNow.get(Calendar.MONTH),
+                    localNow.get(Calendar.DAY_OF_MONTH)
+                )
             }.timeInMillis
         }
 
