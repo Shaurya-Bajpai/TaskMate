@@ -40,16 +40,16 @@ import java.util.TimeZone
 fun ScheduleDialog(
     initialDate: Long?,
     initialReminderType: ReminderType,
-    initialReminderOffset: ReminderOffset,
+    initialReminderOffsets: Set<ReminderOffset>,
     onDismiss: () -> Unit,
-    onConfirm: (date: Long?, reminderType: ReminderType, reminderOffset: ReminderOffset) -> Unit
+    onConfirm: (date: Long?, reminderType: ReminderType, reminderOffsets: Set<ReminderOffset>) -> Unit
 ) {
     val context = LocalContext.current
     val maxDialogHeight = (LocalConfiguration.current.screenHeightDp * 0.9f).dp
 
     var selectedDate by remember { mutableStateOf(initialDate) }
     var selectedReminderType by remember { mutableStateOf(initialReminderType) }
-    var selectedReminderOffset by remember { mutableStateOf(initialReminderOffset) }
+    var selectedReminderOffsets by remember { mutableStateOf(initialReminderOffsets) }
 
     // 0 = None, 1 = DatePicker, 2 = TimePicker
     var activePickerDialog by remember { mutableIntStateOf(0) }
@@ -321,7 +321,8 @@ fun ScheduleDialog(
                         if (selectedReminderType != ReminderType.NONE) {
                             Spacer(modifier = Modifier.height(16.dp))
 
-                            // Reminder Offset Selection
+                            // Reminder Offset Selection — multi-select: pick as many as you want
+                            // (e.g. both "1 day before" and "1 hour before").
                             SectionLabel(text = stringResource(id = R.string.remind_me))
 
                             LazyRow(
@@ -330,8 +331,14 @@ fun ScheduleDialog(
                                 items(ReminderOffset.entries.toTypedArray()) { offset ->
                                     ReminderOffsetChip(
                                         offset = offset,
-                                        isSelected = selectedReminderOffset == offset,
-                                        onClick = { selectedReminderOffset = offset }
+                                        isSelected = offset in selectedReminderOffsets,
+                                        onClick = {
+                                            selectedReminderOffsets = if (offset in selectedReminderOffsets) {
+                                                selectedReminderOffsets - offset
+                                            } else {
+                                                selectedReminderOffsets + offset
+                                            }
+                                        }
                                     )
                                 }
                             }
@@ -367,11 +374,13 @@ fun ScheduleDialog(
                             .clip(RoundedCornerShape(16.dp))
                             .background(TaskMateColors.primaryGradient)
                             .clickable {
-                                onConfirm(
-                                    selectedDate,
-                                    if (selectedDate != null) selectedReminderType else ReminderType.NONE,
-                                    selectedReminderOffset
-                                )
+                                val finalReminderType = if (selectedDate != null) selectedReminderType else ReminderType.NONE
+                                val finalOffsets = if (finalReminderType != ReminderType.NONE && selectedReminderOffsets.isEmpty()) {
+                                    setOf(ReminderOffset.AT_DUE_TIME)
+                                } else {
+                                    selectedReminderOffsets
+                                }
+                                onConfirm(selectedDate, finalReminderType, finalOffsets)
                             },
                         contentAlignment = Alignment.Center
                     ) {

@@ -16,8 +16,8 @@ data class Todo(
     val category: Category = Category.PERSONAL,
     @ColumnInfo(name = "todo-due-date")
     val dueDate: Long? = null, // Timestamp
-    @ColumnInfo(name = "todo-reminder-offset-minutes")
-    val reminderOffsetMinutes: Long? = null, // Minutes before dueDate to notify; null = no reminder
+    @ColumnInfo(name = "todo-reminder-offsets-minutes")
+    val reminderOffsetsMinutes: String? = null, // CSV of minutes before dueDate to notify; null = no reminder
     @ColumnInfo(name = "todo-reminder-type")
     val reminderType: ReminderType = ReminderType.NOTIFICATION, // Alarm or Notification
     @ColumnInfo(name = "todo-is-completed")

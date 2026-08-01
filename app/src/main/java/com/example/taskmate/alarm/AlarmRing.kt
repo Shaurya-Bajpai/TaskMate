@@ -50,6 +50,7 @@ class AlarmRingActivity : ComponentActivity() {
     private var mediaPlayer: MediaPlayer? = null
     private var vibrator: Vibrator? = null
     private var taskId: Long = -1L
+    private var notificationId: Int = -1
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,6 +58,7 @@ class AlarmRingActivity : ComponentActivity() {
         showOverLockScreen()
 
         taskId = intent.getLongExtra(AlarmReceiver.EXTRA_TASK_ID, -1L)
+        notificationId = intent.getIntExtra(AlarmReceiver.EXTRA_NOTIFICATION_ID, taskId.toInt())
         val taskTitle = intent.getStringExtra(AlarmReceiver.EXTRA_TASK_TITLE)
             ?: getString(R.string.default_task_reminder)
 
@@ -118,8 +120,8 @@ class AlarmRingActivity : ComponentActivity() {
         mediaPlayer?.runCatching { stop(); release() }
         mediaPlayer = null
         vibrator?.cancel()
-        if (taskId >= 0) {
-            NotificationManagerCompat.from(this).cancel(taskId.toInt())
+        if (notificationId >= 0) {
+            NotificationManagerCompat.from(this).cancel(notificationId)
         }
         finish()
     }

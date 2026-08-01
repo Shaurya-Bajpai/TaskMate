@@ -12,6 +12,29 @@ enum class ReminderOffset(val minutes: Long, @StringRes val displayName: Int) {
     ONE_DAY(1440L, R.string.reminder_1_day_before);
 
     companion object {
-        fun fromMinutes(minutes: Long?): ReminderOffset = entries.find { it.minutes == minutes } ?: AT_DUE_TIME
+        /** Serializes a set of offsets to a comma-separated minutes string for storage, e.g. "0,60,1440". */
+        fun encodeSet(offsets: Set<ReminderOffset>): String? =
+            if (offsets.isEmpty()) null else offsets.sortedBy { it.minutes }.joinToString(",") { it.minutes.toString() }
+
+        /** Parses the stored CSV back into a set of offsets, ignoring any unrecognized values. */
+        fun decodeSet(csv: String?): Set<ReminderOffset> {
+            if (csv.isNullOrBlank()) return emptySet()
+            return csv.split(",")
+                .mapNotNull { it.trim().toLongOrNull() }
+                .mapNotNull { minutes -> entries.find { it.minutes == minutes } }
+                .toSet()
+        }
     }
 }
+
+/**
+ * A stable, unique int id per (taskId, offset) pair, used as both the WorkManager/AlarmManager
+ * request code and the Android notification id — so a task with multiple reminder offsets gets
+ * one independently-scheduled, independently-dismissible notification/alarm per offset instead
+ * of them overwriting each other.
+ */
+fun reminderRequestId(taskId: Long, offset: ReminderOffset): Int =
+    (taskId.toInt() * 100) + ReminderOffset.entries.indexOf(offset)
+
+/** Reserved id slot (outside the 0-5 offset index range) for a one-off snoozed alarm. */
+fun snoozeRequestId(taskId: Long): Int = (taskId.toInt() * 100) + 99

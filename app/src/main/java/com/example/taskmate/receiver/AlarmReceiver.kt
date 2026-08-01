@@ -2,6 +2,7 @@ package com.example.taskmate.receiver
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.Notification.EXTRA_NOTIFICATION_ID
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -26,6 +27,7 @@ class AlarmReceiver : BroadcastReceiver() {
         val taskId = intent.getLongExtra(EXTRA_TASK_ID, -1L)
         val taskTitle = intent.getStringExtra(EXTRA_TASK_TITLE)
             ?: context.getString(R.string.default_task_reminder)
+        val notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, taskId.toInt())
 
         createAlarmChannel(context)
 
@@ -33,10 +35,11 @@ class AlarmReceiver : BroadcastReceiver() {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra(EXTRA_TASK_ID, taskId)
             putExtra(EXTRA_TASK_TITLE, taskTitle)
+            putExtra(EXTRA_NOTIFICATION_ID, notificationId)
         }
         val ringPendingIntent = PendingIntent.getActivity(
             context,
-            taskId.toInt(),
+            notificationId,
             ringIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -58,7 +61,7 @@ class AlarmReceiver : BroadcastReceiver() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         ) {
-            NotificationManagerCompat.from(context).notify(taskId.toInt(), notification)
+            NotificationManagerCompat.from(context).notify(notificationId, notification)
         }
 
         // Full-screen intent isn't guaranteed to auto-launch on every OEM/state, so also
@@ -70,6 +73,7 @@ class AlarmReceiver : BroadcastReceiver() {
     companion object {
         const val EXTRA_TASK_ID = "task_id"
         const val EXTRA_TASK_TITLE = "task_title"
+        const val EXTRA_NOTIFICATION_ID = "notification_id"
         const val ALARM_CHANNEL_ID = "task_alarm_channel"
 
         private fun createAlarmChannel(context: Context) {

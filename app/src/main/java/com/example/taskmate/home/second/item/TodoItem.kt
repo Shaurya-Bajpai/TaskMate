@@ -20,15 +20,22 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import com.example.taskmate.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.*
 import com.example.taskmate.data.Todo
 import com.example.taskmate.home.second.buttons.IconButton
 import com.example.taskmate.home.second.formatDate
 import com.example.taskmate.home.second.getPriorityColor
+
+
+private val BOLD_REGEX = Regex("\\*\\*(.+?)\\*\\*")
 
 @Composable
 fun TodoItem(
@@ -228,7 +235,7 @@ fun TodoItem(
                             .padding(20.dp)
                     ) {
                         Text(
-                            text = todo.description,
+                            text = buildFormattedText(todo.description, stripMarkers = true),
                             fontSize = 14.sp,
                             color = Color.White.copy(alpha = 0.8f),
                             lineHeight = 20.sp
@@ -237,5 +244,27 @@ fun TodoItem(
                 }
             }
         }
+    }
+}
+
+/**
+ * Renders [raw] markdown-lite text as styled [AnnotatedString].
+ * [stripMarkers] removes the `**` marker characters — pass true for read-only display
+ * (the task list); the description edit field always shows plain, unstyled text instead,
+ * so formatting only becomes visible once the task is saved.
+ */
+fun buildFormattedText(raw: String, stripMarkers: Boolean = false): AnnotatedString {
+    return buildAnnotatedString {
+        var cursor = 0
+        for (match in BOLD_REGEX.findAll(raw)) {
+            if (match.range.first > cursor) {
+                append(raw.substring(cursor, match.range.first))
+            }
+            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                append(if (stripMarkers) match.groupValues[1] else match.value)
+            }
+            cursor = match.range.last + 1
+        }
+        if (cursor < raw.length) append(raw.substring(cursor))
     }
 }

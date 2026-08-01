@@ -14,10 +14,14 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.*
 import com.example.taskmate.data.Todo
 import com.example.taskmate.R
+import com.example.taskmate.data.ReminderOffset
+import com.example.taskmate.data.reminderRequestId
 import com.example.taskmate.notification.NotificationIcons
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import java.util.concurrent.TimeUnit
+import kotlin.collections.forEach
+import kotlin.collections.ifEmpty
 
 @HiltWorker
 class ReminderWorker @AssistedInject constructor(
@@ -28,19 +32,20 @@ class ReminderWorker @AssistedInject constructor(
     override suspend fun doWork(): Result {
         val taskTitle = inputData.getString(KEY_TITLE) ?: applicationContext.getString(R.string.default_task_reminder)
         val taskId = inputData.getLong(KEY_TASK_ID, -1L)
+        val notificationId = inputData.getInt(KEY_NOTIFICATION_ID, taskId.toInt())
         val offsetMinutes = inputData.getLong(KEY_OFFSET_MINUTES, 0L)
 
-        showNotification(taskTitle, taskId.toInt(), offsetMinutes)
+        showNotification(taskTitle, taskId, notificationId, offsetMinutes)
         return Result.success()
     }
 
     @SuppressLint("MissingPermission")
-    private fun showNotification(title: String, notificationId: Int, offsetMinutes: Long) {
+    private fun showNotification(title: String, taskId: Long, notificationId: Int, offsetMinutes: Long) {
         val channelId = "task_reminder_channel"
 
         val intent = android.content.Intent(applicationContext, Class.forName("com.example.taskmate.MainActivity")).apply {
             flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK
-            putExtra("taskId", notificationId.toLong())
+            putExtra("taskId", taskId)
         }
         val pendingIntent: android.app.PendingIntent = android.app.PendingIntent.getActivity(
             applicationContext, 
@@ -102,36 +107,45 @@ class ReminderWorker @AssistedInject constructor(
     companion object {
         const val KEY_TITLE = "task_title"
         const val KEY_TASK_ID = "task_id"
+        const val KEY_NOTIFICATION_ID = "notification_id"
         const val KEY_OFFSET_MINUTES = "offset_minutes"
 
+        /** Schedules one independently-timed notification per selected reminder offset. */
         fun scheduleReminder(context: Context, task: Todo) {
             val dueDate = task.dueDate ?: return
-            val offsetMinutes = task.reminderOffsetMinutes ?: 0L
-            val triggerTime = dueDate - TimeUnit.MINUTES.toMillis(offsetMinutes)
-            val delay = triggerTime - System.currentTimeMillis()
+            val offsets = ReminderOffset.decodeSet(task.reminderOffsetsMinutes).ifEmpty { setOf(ReminderOffset.AT_DUE_TIME) }
 
-            if (delay <= 0) return // Reminder time has already passed
+            offsets.forEach { offset ->
+                val triggerTime = dueDate - TimeUnit.MINUTES.toMillis(offset.minutes)
+                val delay = triggerTime - System.currentTimeMillis()
+                if (delay <= 0) return@forEach // This offset's reminder time has already passed
 
-            val inputData = workDataOf(
-                KEY_TITLE to task.title,
-                KEY_TASK_ID to task.id,
-                KEY_OFFSET_MINUTES to offsetMinutes
-            )
+                val inputData = workDataOf(
+                    KEY_TITLE to task.title,
+                    KEY_TASK_ID to task.id,
+                    KEY_NOTIFICATION_ID to reminderRequestId(task.id, offset),
+                    KEY_OFFSET_MINUTES to offset.minutes
+                )
 
-            val workRequest = OneTimeWorkRequestBuilder<ReminderWorker>()
-                .setInitialDelay(delay, TimeUnit.MILLISECONDS)
-                .setInputData(inputData)
-                .build()
+                val workRequest = OneTimeWorkRequestBuilder<ReminderWorker>()
+                    .setInitialDelay(delay, TimeUnit.MILLISECONDS)
+                    .setInputData(inputData)
+                    .build()
 
-            WorkManager.getInstance(context).enqueueUniqueWork(
-                "reminder_${task.id}",
-                ExistingWorkPolicy.REPLACE,
-                workRequest
-            )
+                WorkManager.getInstance(context).enqueueUniqueWork(
+                    "reminder_${task.id}_${offset.minutes}",
+                    ExistingWorkPolicy.REPLACE,
+                    workRequest
+                )
+            }
         }
-        
+
+        /** Cancels every possible per-offset reminder for this task (safe even if only some were scheduled). */
         fun cancelReminder(context: Context, taskId: Long) {
-            WorkManager.getInstance(context).cancelUniqueWork("reminder_$taskId")
+            ReminderOffset.entries.forEach { offset ->
+                WorkManager.getInstance(context).cancelUniqueWork("reminder_${taskId}_${offset.minutes}")
+            }
         }
     }
 }
+
