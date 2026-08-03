@@ -35,6 +35,7 @@ import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -91,12 +92,18 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
         clearFocusRequester.requestFocus()
     }
 
-    // Exception: the description formatting toolbar (bullet/numbered/arrow/bold) acts on the
-    // description field's current cursor/selection, so tapping it must NOT drop focus first —
-    // that's tracked via its bounds (root-relative, so it stays correct as the form scrolls)
-    // and excluded from the clear-focus check below.
+    // Exceptions, tracked by root-relative bounds so they stay correct as the form scrolls:
+    // - The description formatting toolbar (bullet/numbered/arrow/bold) acts on the
+    //   description field's current cursor/selection, so tapping it must not drop focus first.
+    // - The title/description fields themselves, inflated by a touch-target margin: repositioning
+    //   the cursor or dragging a selection handle registers as a down-press that can land just
+    //   outside the field's drawn border (that's where handles render), and that must not be
+    //   treated as an "elsewhere" tap either.
     var cardOffsetInRoot by remember { mutableStateOf(Offset.Zero) }
+    var titleFieldBoundsInRoot by remember { mutableStateOf<Rect?>(null) }
+    var descriptionFieldBoundsInRoot by remember { mutableStateOf<Rect?>(null) }
     var formatToolbarBoundsInRoot by remember { mutableStateOf<Rect?>(null) }
+    val handleTouchMarginPx = with(LocalDensity.current) { 40.dp.toPx() }
     val tapClearsFocusModifier = Modifier
         .onGloballyPositioned { cardOffsetInRoot = it.positionInRoot() }
         .pointerInput(titleFocused, descriptionFocused) {
@@ -104,7 +111,10 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
                 val down = awaitFirstDown(pass = PointerEventPass.Initial)
                 val tapInRoot = cardOffsetInRoot + down.position
                 val tappedFormatToolbar = formatToolbarBoundsInRoot?.contains(tapInRoot) == true
-                if (!tappedFormatToolbar && (titleFocused || descriptionFocused)) {
+                val tappedTitleField = titleFieldBoundsInRoot?.inflate(handleTouchMarginPx)?.contains(tapInRoot) == true
+                val tappedDescriptionField = descriptionFieldBoundsInRoot?.inflate(handleTouchMarginPx)?.contains(tapInRoot) == true
+                val shouldClearFocus = !tappedFormatToolbar && !tappedTitleField && !tappedDescriptionField
+                if (shouldClearFocus && (titleFocused || descriptionFocused)) {
                     clearFocusRequester.requestFocus()
                 }
             }
@@ -193,6 +203,7 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
                     },
                     modifier = Modifier
                         .fillMaxWidth()
+                        .onGloballyPositioned { titleFieldBoundsInRoot = it.boundsInRoot() }
                         .onFocusChanged { titleFocused = it.isFocused },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = Color.White,
@@ -223,6 +234,7 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
                     },
                     modifier = Modifier
                         .fillMaxWidth()
+                        .onGloballyPositioned { descriptionFieldBoundsInRoot = it.boundsInRoot() }
                         .onFocusChanged { descriptionFocused = it.isFocused },
                     minLines = 2,
                     maxLines = 5,
