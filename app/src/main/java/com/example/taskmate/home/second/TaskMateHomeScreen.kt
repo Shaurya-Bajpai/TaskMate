@@ -9,6 +9,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.AlertDialog
 import androidx.compose.material.Text
 import androidx.compose.material.TextButton
@@ -57,18 +58,6 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null) {
     val completedCount by viewModel.completedTaskCount.collectAsState(initial = 0)
     val totalCount by viewModel.totalTaskCount.collectAsState(initial = 0)
 
-    var initialHandleDone by remember { mutableStateOf(false) }
-    LaunchedEffect(todoList, initialTaskId) {
-        if (!initialHandleDone && initialTaskId != null && initialTaskId != -1L && todoList.isNotEmpty()) {
-            val targetTask = todoList.find { it.id == initialTaskId }
-            if (targetTask != null) {
-                editingTodo = targetTask
-                showDialog = true
-            }
-            initialHandleDone = true
-        }
-    }
-
     // Filter logic
     val filteredTodos = remember(todoList, searchQuery, selectedFilter) {
         todoList.filter { todo ->
@@ -83,6 +72,29 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null) {
                 FilterType.LOW_PRIORITY -> todo.priority == Priority.LOW
             }
             matchesSearch && matchesFilter
+        }
+    }
+
+    // Tapping a reminder notification highlights that task in place (scrolling it into view)
+    // instead of jumping straight into edit — the user just wants to be pointed at it, not
+    // dropped into an editor for a task they may not want to change.
+    var highlightedTaskId by remember { mutableStateOf<Long?>(null) }
+    val listState = rememberLazyListState()
+    var initialHandleDone by remember { mutableStateOf(false) }
+    LaunchedEffect(filteredTodos, initialTaskId) {
+        if (!initialHandleDone && initialTaskId != null && initialTaskId != -1L && filteredTodos.isNotEmpty()) {
+            val targetIndex = filteredTodos.indexOfFirst { it.id == initialTaskId }
+            if (targetIndex >= 0) {
+                highlightedTaskId = initialTaskId
+                listState.animateScrollToItem(targetIndex)
+            }
+            initialHandleDone = true
+        }
+    }
+    LaunchedEffect(highlightedTaskId) {
+        if (highlightedTaskId != null) {
+            delay(10_000)
+            highlightedTaskId = null
         }
     }
 
@@ -127,10 +139,7 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null) {
                 }
             })
         }) {
-        if (isLoading) {
-            SplashScreen()
-        } else {
-            Column {
+        Column {
                 // Enhanced Top Bar with Statistics
                 TopAppBar(
                     completedCount = completedCount,
@@ -165,6 +174,7 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null) {
                         }
                         else -> {
                             LazyColumn(
+                                state = listState,
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .padding(horizontal = 16.dp),
@@ -194,6 +204,7 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null) {
                                             todo = todo,
                                             isSelected = selectedTodos.contains(todo.id),
                                             isSelectionMode = isSelectionMode,
+                                            isHighlighted = highlightedTaskId == todo.id,
                                             onClickEdit = {
                                                 editingTodo = todo
                                                 showDialog = true
@@ -244,6 +255,18 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null) {
                     }
                 }
             }
+
+        // The home screen underneath is composed and ready the whole time (this is a simulated
+        // loading delay, not real data-readiness), so the splash just needs to fade off the top
+        // of it — a plain AnimatedVisibility exit, rather than Crossfade's AnimatedContent
+        // machinery, which was fighting with the splash's own animateContentSize() and causing a
+        // visible "reset" glitch right at the handoff.
+        AnimatedVisibility(
+            visible = isLoading,
+            exit = fadeOut(animationSpec = tween(400)),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            SplashScreen()
         }
 
         // Floating particles effect

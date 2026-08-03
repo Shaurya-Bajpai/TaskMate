@@ -3,6 +3,7 @@ package com.example.taskmate.home.second.item
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -33,6 +34,7 @@ import com.example.taskmate.data.Todo
 import com.example.taskmate.home.second.buttons.IconButton
 import com.example.taskmate.home.second.formatDate
 import com.example.taskmate.home.second.getPriorityColor
+import com.example.taskmate.ui.theme.HighlightColor
 
 
 private val BOLD_REGEX = Regex("\\*\\*(.+?)\\*\\*")
@@ -43,6 +45,7 @@ fun TodoItem(
     isSelected: Boolean,
     isSelectionMode: Boolean,
     onClickEdit: () -> Unit,
+    isHighlighted: Boolean = false,
     onToggleComplete: () -> Unit,
     onLongPress: () -> Unit,
     onSelectionToggle: () -> Unit
@@ -58,22 +61,58 @@ fun TodoItem(
 
     val cardColor by animateColorAsState(
         targetValue = if (isSelected) {
-            Color(0xFF6366F1).copy(alpha = 0.3f)
+            HighlightColor.copy(alpha = 0.3f)
         } else {
             Color(0xFF2D3748).copy(alpha = 0.95f)
         },
         animationSpec = tween(200)
     )
 
+    // A notification tap points the user at this task via a soft pulsing glow border — not a
+    // recolored card, which read as an ugly flat color swap rather than a highlight. The pulse
+    // rides on top of highlightGlow's fade in/out, so it fades to nothing once isHighlighted
+    // flips false again 10s later, no separate "return to normal" logic needed.
+    val highlightGlow by animateFloatAsState(
+        targetValue = if (isHighlighted) 1f else 0f,
+        animationSpec = tween(400)
+    )
+    val highlightPulse by rememberInfiniteTransition(label = "highlightPulse").animateFloat(
+        initialValue = 0.45f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 700, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "highlightPulseValue"
+    )
+    val highlightAlpha = highlightGlow * highlightPulse
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .alpha(animatedAlpha)
+            .then(
+                if (highlightAlpha > 0f) {
+                    Modifier.border(
+                        width = 1.5.dp,
+                        color = HighlightColor.copy(alpha = highlightAlpha),
+                        shape = RoundedCornerShape(20.dp)
+                    )
+                } else {
+                    Modifier
+                }
+            )
             .shadow(
-                elevation = if (todo.isCompleted) 4.dp else 8.dp,
+                elevation = lerp(
+                    if (todo.isCompleted) 4.dp else 8.dp,
+                    14.dp,
+                    highlightAlpha
+                ),
                 shape = RoundedCornerShape(20.dp),
-                ambientColor = getPriorityColor(todo.priority).copy(alpha = 0.3f),
-                spotColor = getPriorityColor(todo.priority).copy(alpha = 0.3f)
+                ambientColor = lerp(getPriorityColor(todo.priority),
+                    HighlightColor, highlightGlow).copy(alpha = 0.3f + highlightAlpha * 0.25f),
+                spotColor = lerp(getPriorityColor(todo.priority),
+                    HighlightColor, highlightGlow).copy(alpha = 0.3f + highlightAlpha * 0.25f)
             )
             .pointerInput(Unit) {
                 detectTapGestures(
