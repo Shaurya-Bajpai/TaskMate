@@ -8,6 +8,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,7 +26,14 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusTarget
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalView
@@ -82,6 +91,25 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
         clearFocusRequester.requestFocus()
     }
 
+    // Exception: the description formatting toolbar (bullet/numbered/arrow/bold) acts on the
+    // description field's current cursor/selection, so tapping it must NOT drop focus first —
+    // that's tracked via its bounds (root-relative, so it stays correct as the form scrolls)
+    // and excluded from the clear-focus check below.
+    var cardOffsetInRoot by remember { mutableStateOf(Offset.Zero) }
+    var formatToolbarBoundsInRoot by remember { mutableStateOf<Rect?>(null) }
+    val tapClearsFocusModifier = Modifier
+        .onGloballyPositioned { cardOffsetInRoot = it.positionInRoot() }
+        .pointerInput(titleFocused, descriptionFocused) {
+            awaitEachGesture {
+                val down = awaitFirstDown(pass = PointerEventPass.Initial)
+                val tapInRoot = cardOffsetInRoot + down.position
+                val tappedFormatToolbar = formatToolbarBoundsInRoot?.contains(tapInRoot) == true
+                if (!tappedFormatToolbar && (titleFocused || descriptionFocused)) {
+                    clearFocusRequester.requestFocus()
+                }
+            }
+        }
+
     var title by remember { mutableStateOf(todo?.title ?: "") }
     var description by remember { mutableStateOf(TextFieldValue(todo?.description ?: "")) }
     var selectedPriority by remember { mutableStateOf(todo?.priority ?: Priority.MEDIUM) }
@@ -126,7 +154,8 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(16.dp)
+                .then(tapClearsFocusModifier),
             shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(containerColor = Color(0xFF2D3748))
         ) {
@@ -219,7 +248,10 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
                 // renders styled once saved (task list); the edit field itself stays plain
                 // so nothing looks garbled mid-edit.
                 val isBoldEnabled = !description.selection.collapsed
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.onGloballyPositioned { formatToolbarBoundsInRoot = it.boundsInRoot() }
+                ) {
                     FormatToolbarButton(label = "•") {
                         description = insertLineWithPrefix(description, "• ")
                     }

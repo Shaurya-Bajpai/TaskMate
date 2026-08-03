@@ -263,6 +263,7 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null) {
                     viewModel.updateTask(todo)
                 } else {
                     viewModel.addTask(todo)
+                    searchQuery = ""
                 }
                 editingTodo = null
             }
