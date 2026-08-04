@@ -298,7 +298,7 @@ fun ScheduleDialog(
                         }
                     }
 
-                    if (selectedDate != null && activePickerDialog == 0) {
+                    if (selectedDate != null) {
                         SectionDivider()
 
                         // Reminder Type Selection
