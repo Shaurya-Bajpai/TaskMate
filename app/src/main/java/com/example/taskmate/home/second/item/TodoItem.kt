@@ -2,9 +2,11 @@ package com.example.taskmate.home.second.item
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.animation.core.animateTo
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
@@ -13,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -37,6 +40,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.*
 import com.example.taskmate.data.Todo
+import com.example.taskmate.home.first.dialogs.DeleteDialog
 import com.example.taskmate.home.second.buttons.IconButton
 import com.example.taskmate.home.second.formatDate
 import com.example.taskmate.home.second.getPriorityColor
@@ -55,10 +59,12 @@ fun TodoItem(
     onClickEdit: () -> Unit,
     isHighlighted: Boolean = false,
     onToggleComplete: () -> Unit,
+    onDelete: () -> Unit,
     onLongPress: () -> Unit,
     onSelectionToggle: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
     val hapticFeedback = LocalHapticFeedback.current
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -74,6 +80,10 @@ fun TodoItem(
     val density = LocalDensity.current
     val swipeThresholdPx = with(density) { 88.dp.toPx() }
     val swipeMaxPx = with(density) { 120.dp.toPx() }
+
+    // Swipe-left reveals a delete button
+    val deleteOpenPx = with(density) { 76.dp.toPx() }
+    val deleteThresholdPx = deleteOpenPx / 2f
 
     val animatedAlpha by animateFloatAsState(
         targetValue = if (todo.isCompleted) 0.7f else 1f,
@@ -117,38 +127,72 @@ fun TodoItem(
     val highlightAlpha = highlightGlow * highlightPulse
 
     Box(modifier = Modifier.fillMaxWidth()) {
-        // Action panel revealed behind the card as it slides right on swipe.
+        // Action panel revealed behind the card as it slides on swipe: dragging right previews
+        // the complete/undo action (unchanged), dragging left reveals a delete bin instead.
         if (!isSelectionMode) {
-            val swipeProgress = (currentOffsetPx / swipeThresholdPx).coerceIn(0f, 1f)
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(if (todo.isCompleted) Color(0xFFF59E0B) else Color(0xFF10B981)),
-                contentAlignment = Alignment.CenterStart
-            ) {
-                Row(
-                    modifier = Modifier
-                        .padding(start = 28.dp)
-                        .alpha(swipeProgress),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = if (todo.isCompleted) Icons.Default.Close else Icons.Default.Check,
-                        contentDescription = null,
-                        tint = Color.White
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = if (todo.isCompleted) {
-                            stringResource(id = R.string.filter_active)
-                        } else {
-                            stringResource(id = R.string.done)
-                        },
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp
-                    )
+            when {
+                currentOffsetPx > 0f -> {
+                    val swipeProgress = (currentOffsetPx / swipeThresholdPx).coerceIn(0f, 1f)
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(
+                                if (todo.isCompleted) Color(0xFFF59E0B) else Color(
+                                    0xFF10B981
+                                )
+                            ),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .padding(start = 28.dp)
+                                .alpha(swipeProgress),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = if (todo.isCompleted) Icons.Default.Close else Icons.Default.Check,
+                                contentDescription = null,
+                                tint = Color.White
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (todo.isCompleted) {
+                                    stringResource(id = R.string.filter_active)
+                                } else {
+                                    stringResource(id = R.string.done)
+                                },
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+                }
+
+                currentOffsetPx < 0f -> {
+                    val deleteRevealProgress = (-currentOffsetPx / deleteOpenPx).coerceIn(0f, 1f)
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(Color(0xFFEF4444)),
+                        contentAlignment = Alignment.CenterEnd
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .padding(end = 28.dp)
+                                .alpha(deleteRevealProgress)
+                                .clickable(onClick = { showDeleteConfirm = true }),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = stringResource(id = R.string.delete),
+                                tint = Color.White
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -171,10 +215,18 @@ fun TodoItem(
                                 val finalOffsetPx = dragOffsetPx
                                 coroutineScope.launch {
                                     swipeOffset.snapTo(finalOffsetPx)
-                                    if (finalOffsetPx > swipeThresholdPx) {
-                                        onToggleComplete()
+                                    when {
+                                        finalOffsetPx > swipeThresholdPx -> {
+                                            onToggleComplete()
+                                            swipeOffset.animateTo(0f, animationSpec = tween(250))
+                                        }
+                                        finalOffsetPx < -deleteThresholdPx -> {
+                                            swipeOffset.animateTo(-deleteOpenPx, animationSpec = tween(200))
+                                        }
+                                        else -> {
+                                            swipeOffset.animateTo(0f, animationSpec = tween(250))
+                                        }
                                     }
-                                    swipeOffset.animateTo(0f, animationSpec = tween(250))
                                 }
                             },
                             onDragCancel = {
@@ -187,7 +239,7 @@ fun TodoItem(
                             },
                             onHorizontalDrag = { change, dragAmount ->
                                 change.consume()
-                                dragOffsetPx = (dragOffsetPx + dragAmount).coerceIn(0f, swipeMaxPx)
+                                dragOffsetPx = (dragOffsetPx + dragAmount).coerceIn(-deleteOpenPx, swipeMaxPx)
                             }
                         )
                     }
@@ -224,6 +276,8 @@ fun TodoItem(
                     onTap = {
                         if (isSelectionMode) {
                             onSelectionToggle()
+                        } else if (swipeOffset.value != 0f) {
+                            coroutineScope.launch { swipeOffset.animateTo(0f, animationSpec = tween(200)) }
                         } else {
                             expanded = !expanded
                         }
@@ -396,6 +450,19 @@ fun TodoItem(
                 }
             }
         }
+    }
+
+    if (showDeleteConfirm) {
+        DeleteDialog(
+            onDismiss = {
+                showDeleteConfirm = false
+                coroutineScope.launch { swipeOffset.animateTo(0f, animationSpec = tween(200)) }
+            },
+            onConfirm = {
+                showDeleteConfirm = false
+                onDelete()
+            }
+        )
     }
 }
 

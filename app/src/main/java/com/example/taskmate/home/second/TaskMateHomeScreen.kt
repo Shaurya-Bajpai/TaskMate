@@ -212,6 +212,9 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null) {
                                             onToggleComplete = {
                                                 viewModel.updateTask(todo.copy(isCompleted = !todo.isCompleted))
                                             },
+                                            onDelete = {
+                                                viewModel.deleteTask(todo)
+                                            },
                                             onLongPress = {
                                                 if (!isSelectionMode) {
                                                     isSelectionMode = true
