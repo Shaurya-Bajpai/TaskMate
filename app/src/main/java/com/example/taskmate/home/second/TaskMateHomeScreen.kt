@@ -21,6 +21,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
+import com.example.taskmate.R
 import com.example.taskmate.data.*
 import com.example.taskmate.home.second.FilterType
 import com.example.taskmate.home.second.animation.FloatingParticles
@@ -173,6 +174,8 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null) {
                         filteredTodos.isEmpty() -> {
                             if (todoList.isEmpty()) {
                                 EmptyState()
+                            } else if (searchQuery.isEmpty()) {
+                                NoResultsState(searchQuery, R.string.no_tasks_yet)
                             } else {
                                 NoResultsState(searchQuery)
                             }
