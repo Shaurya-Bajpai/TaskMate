@@ -77,6 +77,14 @@ fun TodoItem(
     var dragOffsetPx by remember { mutableFloatStateOf(0f) }
     val swipeOffset = remember { Animatable(0f) }
     val currentOffsetPx = if (isDragging) dragOffsetPx else swipeOffset.value
+    // The right-swipe reveal panel previews "what will happen if you let go" (see below), and
+    // that preview needs to stay fixed for the *entire* gesture including the snap-back
+    // animation after release — not track the live `todo.isCompleted`. onToggleComplete's DB
+    // write can land (and flip isCompleted) while the card is still sliding back to rest, and
+    // reading the live value made the panel's color/icon/text flip abruptly mid-slide, which
+    // read as a flicker right before the card settled. Freezing it at drag-start avoids that.
+    var completedAtGestureStart by remember { mutableStateOf(todo.isCompleted) }
+
     val density = LocalDensity.current
     val swipeThresholdPx = with(density) { 88.dp.toPx() }
     val swipeMaxPx = with(density) { 120.dp.toPx() }
@@ -137,11 +145,7 @@ fun TodoItem(
                         modifier = Modifier
                             .matchParentSize()
                             .clip(RoundedCornerShape(20.dp))
-                            .background(
-                                if (todo.isCompleted) Color(0xFFF59E0B) else Color(
-                                    0xFF10B981
-                                )
-                            ),
+                            .background(if (completedAtGestureStart) Color(0xFFF59E0B) else Color(0xFF10B981)),
                         contentAlignment = Alignment.CenterStart
                     ) {
                         Row(
@@ -151,13 +155,13 @@ fun TodoItem(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                imageVector = if (todo.isCompleted) Icons.Default.Close else Icons.Default.Check,
+                                imageVector = if (completedAtGestureStart) Icons.Default.Close else Icons.Default.Check,
                                 contentDescription = null,
                                 tint = Color.White
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = if (todo.isCompleted) {
+                                text = if (completedAtGestureStart) {
                                     stringResource(id = R.string.filter_active)
                                 } else {
                                     stringResource(id = R.string.done)
@@ -209,6 +213,7 @@ fun TodoItem(
                             onDragStart = {
                                 isDragging = true
                                 dragOffsetPx = swipeOffset.value
+                                completedAtGestureStart = todo.isCompleted
                             },
                             onDragEnd = {
                                 isDragging = false
