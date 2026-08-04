@@ -67,7 +67,10 @@ fun TodoItem(
     // itself slides right on drag, revealing a colored action panel underneath; past the
     // threshold, releasing fires onToggleComplete(), then the card always animates back to rest
     // — this toggles state in place rather than dismissing/removing the item from the list.
+    var isDragging by remember { mutableStateOf(false) }
+    var dragOffsetPx by remember { mutableFloatStateOf(0f) }
     val swipeOffset = remember { Animatable(0f) }
+    val currentOffsetPx = if (isDragging) dragOffsetPx else swipeOffset.value
     val density = LocalDensity.current
     val swipeThresholdPx = with(density) { 88.dp.toPx() }
     val swipeMaxPx = with(density) { 120.dp.toPx() }
@@ -116,7 +119,7 @@ fun TodoItem(
     Box(modifier = Modifier.fillMaxWidth()) {
         // Action panel revealed behind the card as it slides right on swipe.
         if (!isSelectionMode) {
-            val swipeProgress = (swipeOffset.value / swipeThresholdPx).coerceIn(0f, 1f)
+            val swipeProgress = (currentOffsetPx / swipeThresholdPx).coerceIn(0f, 1f)
             Box(
                 modifier = Modifier
                     .matchParentSize()
@@ -154,27 +157,37 @@ fun TodoItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .offset { IntOffset(swipeOffset.value.roundToInt(), 0) }
+            .offset { IntOffset(currentOffsetPx.roundToInt(), 0) }
             .then(
                 if (!isSelectionMode) {
-                    Modifier.pointerInput(todo.id) {
+                    Modifier.pointerInput(todo.id, todo.isCompleted) {
                         detectHorizontalDragGestures(
+                            onDragStart = {
+                                isDragging = true
+                                dragOffsetPx = swipeOffset.value
+                            },
                             onDragEnd = {
+                                isDragging = false
+                                val finalOffsetPx = dragOffsetPx
                                 coroutineScope.launch {
-                                    if (swipeOffset.value > swipeThresholdPx) {
+                                    swipeOffset.snapTo(finalOffsetPx)
+                                    if (finalOffsetPx > swipeThresholdPx) {
                                         onToggleComplete()
                                     }
                                     swipeOffset.animateTo(0f, animationSpec = tween(250))
                                 }
                             },
                             onDragCancel = {
-                                coroutineScope.launch { swipeOffset.animateTo(0f, animationSpec = tween(250)) }
+                                isDragging = false
+                                val finalOffsetPx = dragOffsetPx
+                                coroutineScope.launch {
+                                    swipeOffset.snapTo(finalOffsetPx)
+                                    swipeOffset.animateTo(0f, animationSpec = tween(250))
+                                }
                             },
                             onHorizontalDrag = { change, dragAmount ->
                                 change.consume()
-                                coroutineScope.launch {
-                                    swipeOffset.snapTo((swipeOffset.value + dragAmount).coerceIn(0f, swipeMaxPx))
-                                }
+                                dragOffsetPx = (dragOffsetPx + dragAmount).coerceIn(0f, swipeMaxPx)
                             }
                         )
                     }
@@ -224,182 +237,161 @@ fun TodoItem(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = cardColor)
     ) {
-        // A full-height priority-colored accent stripe on the leading edge, so priority reads
-        // at a glance while scanning the list, without depending on the small priority chip text.
-        Row(modifier = Modifier.height(IntrinsicSize.Min)) {
-            Box(modifier = Modifier
-                    .fillMaxHeight()
-                    .width(4.dp)
-                    .background(accentColor)
-            )
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .background(
-                        Brush.linearGradient(colors = listOf(accentColor.copy(alpha = 0.14f), Color.Transparent))
+        // A priority-colored accent stripe on the leading edge, so priority reads at a glance
+        // while scanning the list. Drawn directly (not a separate IntrinsicSize.Min-measured
+        // Row) so it just tracks whatever height this Box ends up with each frame — including
+        // while the description below is mid collapse/expand animation — instead of lagging a
+        // beat behind it, which an intrinsic-measurement pass on an animating child caused.
+        val stripeWidthPx = with(density) { 4.dp.toPx() }
+        Box(
+            modifier = Modifier
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            accentColor.copy(alpha = 0.14f),
+                            Color.Transparent
+                        )
                     )
-            ) {
-                Column {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(20.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Selection checkbox in selection mode; otherwise a non-interactive status
-                        // dot — completion is now toggled by swiping the card, not tapping this.
-                        if (isSelectionMode) {
-                            Checkbox(
-                                checked = isSelected,
-                                onCheckedChange = { onSelectionToggle() },
-                                colors = CheckboxDefaults.colors(
-                                    checkedColor = Color(0xFF6366F1),
-                                    uncheckedColor = Color.White.copy(alpha = 0.5f),
-                                    checkmarkColor = Color.White
-                                )
+                )
+                .drawBehind {
+                    drawRect(color = accentColor, size = androidx.compose.ui.geometry.Size(stripeWidthPx, size.height))
+                }
+        ) {
+            Column {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Selection checkbox in selection mode; otherwise a non-interactive status
+                    // dot — completion is now toggled by swiping the card, not tapping this.
+                    if (isSelectionMode) {
+                        Checkbox(
+                            checked = isSelected,
+                            onCheckedChange = { onSelectionToggle() },
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = Color(0xFF6366F1),
+                                uncheckedColor = Color.White.copy(alpha = 0.5f),
+                                checkmarkColor = Color.White
                             )
-                        } else {
-                            Box(
-                                modifier = Modifier
-                                    .size(24.dp)
-                                    .clip(CircleShape)
-                                    .background(if (todo.isCompleted) getPriorityColor(todo.priority) else Color.Transparent)
-                                    .border(
-                                        width = 1.5.dp,
-                                        color = if (todo.isCompleted) Color.Transparent else Color.White.copy(
-                                            alpha = 0.4f
-                                        ),
-                                        shape = CircleShape
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (todo.isCompleted) {
-                                    Icon(
-                                        imageVector = Icons.Default.Check,
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.width(16.dp))
-
-                        // Category badge — a tinted icon chip reads much better at a glance than a
-                        // bare inline emoji sitting flush against the title text.
-                        Box(
-                            modifier = Modifier
-                                .size(34.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(accentColor.copy(alpha = 0.16f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(text = stringResource(todo.category.icon), fontSize = 16.sp)
-                        }
-
+                        )
                         Spacer(modifier = Modifier.width(12.dp))
+                    }
 
-                        // Task content
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = todo.title,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = if (todo.isCompleted) Color.White.copy(alpha = 0.6f) else Color.White,
-                                textDecoration = if (todo.isCompleted) TextDecoration.LineThrough else TextDecoration.None,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                    // Category badge — a tinted icon chip reads much better at a glance than a
+                    // bare inline emoji sitting flush against the title text.
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(accentColor.copy(alpha = 0.16f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = stringResource(todo.category.icon), fontSize = 16.sp)
+                    }
 
-                            // Due date and priority
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    // Task content
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = todo.title,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (todo.isCompleted) Color.White.copy(alpha = 0.6f) else Color.White,
+                            textDecoration = if (todo.isCompleted) TextDecoration.LineThrough else TextDecoration.None,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+
+                        // Due date and priority
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Priority badge
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = getPriorityColor(todo.priority).copy(alpha = 0.2f),
+                                border = BorderStroke(1.dp, getPriorityColor(todo.priority).copy(alpha = 0.35f))
                             ) {
-                                // Priority badge
+                                Text(
+                                    text = stringResource(todo.priority.displayName),
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = getPriorityColor(todo.priority)
+                                )
+                            }
+
+                            // Due date
+                            todo.dueDate?.let { dueDate ->
+                                val isOverdue = dueDate < System.currentTimeMillis() && !todo.isCompleted
                                 Surface(
                                     shape = RoundedCornerShape(8.dp),
-                                    color = getPriorityColor(todo.priority).copy(alpha = 0.2f),
-                                    border = BorderStroke(1.dp, getPriorityColor(todo.priority).copy(alpha = 0.35f))
+                                    color = if (isOverdue) Color(0xFFEF4444).copy(alpha = 0.2f) else Color(0xFF6B7280).copy(alpha = 0.2f)
                                 ) {
                                     Text(
-                                        text = stringResource(todo.priority.displayName),
+                                        text = formatDate(context, dueDate),
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                         fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = getPriorityColor(todo.priority)
+                                        color = if (isOverdue) Color(0xFFEF4444) else Color.White.copy(alpha = 0.7f
+                                        )
                                     )
-                                }
-
-                                // Due date
-                                todo.dueDate?.let { dueDate ->
-                                    val isOverdue = dueDate < System.currentTimeMillis() && !todo.isCompleted
-                                    Surface(
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = if (isOverdue) Color(0xFFEF4444).copy(alpha = 0.2f) else Color(0xFF6B7280).copy(alpha = 0.2f)
-                                    ) {
-                                        Text(
-                                            text = formatDate(context, dueDate),
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                            fontSize = 10.sp,
-                                            color = if (isOverdue) Color(0xFFEF4444) else Color.White.copy(alpha = 0.7f
-                                            )
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        // Action buttons - only show edit button and expand indicator
-                        if (!isSelectionMode) {
-                            Column(
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                IconButton(
-                                    icon = Icons.Default.Edit,
-                                    onClick = onClickEdit,
-                                    backgroundColor = Color(0xFF6366F1).copy(alpha = 0.2f),
-                                    iconColor = Color(0xFF6366F1),
-                                    size = 36.dp
-                                )
-
-                                // Expand/collapse indicator
-                                if (todo.description.isNotBlank()) {
-                                    IconButton(onClick = { expanded = !expanded }, modifier = Modifier.size(24.dp)) {
-                                        Icon(
-                                            imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                                            contentDescription = if (expanded) stringResource(R.string.task_item_collapse) else stringResource(R.string.task_item_expand),
-                                            tint = Color.White.copy(alpha = 0.6f),
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                    }
                                 }
                             }
                         }
                     }
 
-                    // Expandable description section
-                    AnimatedVisibility(
-                        visible = expanded && todo.description.isNotBlank(),
-                        enter = expandVertically() + fadeIn(),
-                        exit = shrinkVertically() + fadeOut()
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(Color.Black.copy(alpha = 0.1f))
-                                .padding(20.dp)
+                    // Action buttons - only show edit button and expand indicator
+                    if (!isSelectionMode) {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text(
-                                text = buildFormattedText(todo.description, stripMarkers = true),
-                                fontSize = 14.sp,
-                                color = Color.White.copy(alpha = 0.8f),
-                                lineHeight = 20.sp
+                            IconButton(
+                                icon = Icons.Default.Edit,
+                                onClick = onClickEdit,
+                                backgroundColor = Color(0xFF6366F1).copy(alpha = 0.2f),
+                                iconColor = Color(0xFF6366F1),
+                                size = 36.dp
                             )
+
+                            // Expand/collapse indicator
+                            if (todo.description.isNotBlank()) {
+                                IconButton(onClick = { expanded = !expanded }, modifier = Modifier.size(24.dp)) {
+                                    Icon(
+                                        imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                        contentDescription = if (expanded) stringResource(R.string.task_item_collapse) else stringResource(R.string.task_item_expand),
+                                        tint = Color.White.copy(alpha = 0.6f),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
                         }
+                    }
+                }
+
+                // Expandable description section
+                AnimatedVisibility(
+                    visible = expanded && todo.description.isNotBlank(),
+                    enter = expandVertically() + fadeIn(),
+                    exit = shrinkVertically() + fadeOut()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color.Black.copy(alpha = 0.1f))
+                            .padding(20.dp)
+                    ) {
+                        Text(
+                            text = buildFormattedText(todo.description, stripMarkers = true),
+                            fontSize = 14.sp,
+                            color = Color.White.copy(alpha = 0.8f),
+                            lineHeight = 20.sp
+                        )
                     }
                 }
             }
