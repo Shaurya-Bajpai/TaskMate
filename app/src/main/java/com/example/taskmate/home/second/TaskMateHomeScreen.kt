@@ -54,6 +54,11 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null) {
     var selectedTodos by remember { mutableStateOf(setOf<Long>()) }
     var isSelectionMode by remember { mutableStateOf(false) }
 
+    // Only one task's swipe-to-delete panel may be open at a time — swiping a second row open
+    // auto-closes whichever row was previously open, instead of leaving multiple delete panels
+    // exposed at once.
+    var openSwipeTaskId by remember { mutableStateOf<Long?>(null) }
+
     val todoList by viewModel.getAllTask.collectAsState(initial = emptyList())
     val completedCount by viewModel.completedTaskCount.collectAsState(initial = 0)
     val totalCount by viewModel.totalTaskCount.collectAsState(initial = 0)
@@ -205,6 +210,12 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null) {
                                             isSelected = selectedTodos.contains(todo.id),
                                             isSelectionMode = isSelectionMode,
                                             isHighlighted = highlightedTaskId == todo.id,
+                                            isSwipeOpen = openSwipeTaskId == todo.id,
+                                            onSwipeOpenChanged = { isOpen ->
+                                                openSwipeTaskId = if (isOpen) todo.id else {
+                                                    if (openSwipeTaskId == todo.id) null else openSwipeTaskId
+                                                }
+                                            },
                                             onClickEdit = {
                                                 editingTodo = todo
                                                 showDialog = true

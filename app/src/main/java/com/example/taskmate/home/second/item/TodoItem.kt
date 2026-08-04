@@ -58,10 +58,12 @@ fun TodoItem(
     isSelectionMode: Boolean,
     onClickEdit: () -> Unit,
     isHighlighted: Boolean = false,
+    isSwipeOpen: Boolean = false,
     onToggleComplete: () -> Unit,
     onDelete: () -> Unit,
     onLongPress: () -> Unit,
-    onSelectionToggle: () -> Unit
+    onSelectionToggle: () -> Unit,
+    onSwipeOpenChanged: (Boolean) -> Unit = {}
 ) {
     var expanded by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
@@ -77,6 +79,16 @@ fun TodoItem(
     var dragOffsetPx by remember { mutableFloatStateOf(0f) }
     val swipeOffset = remember { Animatable(0f) }
     val currentOffsetPx = if (isDragging) dragOffsetPx else swipeOffset.value
+
+    // Only one row's delete panel can stay open at a time — isSwipeOpen is owned by the parent
+    // list, which flips it false for every row except the one just opened. Closing here in
+    // response rather than the parent reaching into this row's own Animatable keeps the swipe
+    // gesture state private to TodoItem.
+    LaunchedEffect(isSwipeOpen) {
+        if (!isSwipeOpen && swipeOffset.value != 0f) {
+            swipeOffset.animateTo(0f, animationSpec = tween(120))
+        }
+    }
     // The right-swipe reveal panel previews "what will happen if you let go" (see below), and
     // that preview needs to stay fixed for the *entire* gesture including the snap-back
     // animation after release — not track the live `todo.isCompleted`. onToggleComplete's DB
@@ -145,7 +157,11 @@ fun TodoItem(
                         modifier = Modifier
                             .matchParentSize()
                             .clip(RoundedCornerShape(20.dp))
-                            .background(if (completedAtGestureStart) Color(0xFFF59E0B) else Color(0xFF10B981)),
+                            .background(
+                                if (completedAtGestureStart) Color(0xFFF59E0B) else Color(
+                                    0xFF10B981
+                                )
+                            ),
                         contentAlignment = Alignment.CenterStart
                     ) {
                         Row(
@@ -200,271 +216,323 @@ fun TodoItem(
                 }
             }
         }
-    }
 
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .offset { IntOffset(currentOffsetPx.roundToInt(), 0) }
-            .then(
-                if (!isSelectionMode) {
-                    Modifier.pointerInput(todo.id, todo.isCompleted) {
-                        detectHorizontalDragGestures(
-                            onDragStart = {
-                                isDragging = true
-                                dragOffsetPx = swipeOffset.value
-                                completedAtGestureStart = todo.isCompleted
-                            },
-                            onDragEnd = {
-                                isDragging = false
-                                val finalOffsetPx = dragOffsetPx
-                                coroutineScope.launch {
-                                    swipeOffset.snapTo(finalOffsetPx)
-                                    when {
-                                        finalOffsetPx > swipeThresholdPx -> {
-                                            onToggleComplete()
-                                            swipeOffset.animateTo(0f, animationSpec = tween(250))
-                                        }
-                                        finalOffsetPx < -deleteThresholdPx -> {
-                                            swipeOffset.animateTo(-deleteOpenPx, animationSpec = tween(200))
-                                        }
-                                        else -> {
-                                            swipeOffset.animateTo(0f, animationSpec = tween(250))
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset { IntOffset(currentOffsetPx.roundToInt(), 0) }
+                .then(
+                    if (!isSelectionMode) {
+                        Modifier.pointerInput(todo.id, todo.isCompleted) {
+                            detectHorizontalDragGestures(
+                                onDragStart = {
+                                    isDragging = true
+                                    dragOffsetPx = swipeOffset.value
+                                    completedAtGestureStart = todo.isCompleted
+                                },
+                                onDragEnd = {
+                                    val finalOffsetPx = dragOffsetPx
+                                    coroutineScope.launch {
+                                        swipeOffset.snapTo(finalOffsetPx)
+                                        isDragging = false
+                                        when {
+                                            finalOffsetPx > swipeThresholdPx -> {
+                                                onSwipeOpenChanged(false)
+                                                onToggleComplete()
+                                                swipeOffset.animateTo(
+                                                    0f,
+                                                    animationSpec = tween(250)
+                                                )
+                                            }
+
+                                            finalOffsetPx < -deleteThresholdPx -> {
+                                                onSwipeOpenChanged(true)
+                                                swipeOffset.animateTo(
+                                                    -deleteOpenPx,
+                                                    animationSpec = tween(200)
+                                                )
+                                            }
+
+                                            else -> {
+                                                onSwipeOpenChanged(false)
+                                                swipeOffset.animateTo(
+                                                    0f,
+                                                    animationSpec = tween(250)
+                                                )
+                                            }
                                         }
                                     }
+                                },
+                                onDragCancel = {
+                                    val finalOffsetPx = dragOffsetPx
+                                    coroutineScope.launch {
+                                        swipeOffset.snapTo(finalOffsetPx)
+                                        isDragging = false
+                                        onSwipeOpenChanged(false)
+                                        swipeOffset.animateTo(0f, animationSpec = tween(250))
+                                    }
+                                },
+                                onHorizontalDrag = { change, dragAmount ->
+                                    change.consume()
+                                    dragOffsetPx = (dragOffsetPx + dragAmount).coerceIn(
+                                        -deleteOpenPx,
+                                        swipeMaxPx
+                                    )
                                 }
-                            },
-                            onDragCancel = {
-                                isDragging = false
-                                val finalOffsetPx = dragOffsetPx
+                            )
+                        }
+                    } else {
+                        Modifier
+                    }
+                )
+                .alpha(animatedAlpha)
+                .then(
+                    if (highlightAlpha > 0f) {
+                        Modifier.border(
+                            width = 1.5.dp,
+                            color = HighlightColor.copy(alpha = highlightAlpha),
+                            shape = RoundedCornerShape(20.dp)
+                        )
+                    } else {
+                        Modifier
+                    }
+                )
+                .shadow(
+                    elevation = lerp(
+                        if (todo.isCompleted) 4.dp else 8.dp,
+                        14.dp,
+                        highlightAlpha
+                    ),
+                    shape = RoundedCornerShape(20.dp),
+                    ambientColor = lerp(
+                        getPriorityColor(todo.priority),
+                        HighlightColor, highlightGlow
+                    ).copy(alpha = 0.3f + highlightAlpha * 0.25f),
+                    spotColor = lerp(
+                        getPriorityColor(todo.priority),
+                        HighlightColor, highlightGlow
+                    ).copy(alpha = 0.3f + highlightAlpha * 0.25f)
+                )
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onTap = {
+                            if (isSelectionMode) {
+                                onSelectionToggle()
+                            } else if (swipeOffset.value != 0f) {
+                                onSwipeOpenChanged(false)
                                 coroutineScope.launch {
-                                    swipeOffset.snapTo(finalOffsetPx)
-                                    swipeOffset.animateTo(0f, animationSpec = tween(250))
+                                    swipeOffset.animateTo(
+                                        0f,
+                                        animationSpec = tween(200)
+                                    )
                                 }
-                            },
-                            onHorizontalDrag = { change, dragAmount ->
-                                change.consume()
-                                dragOffsetPx = (dragOffsetPx + dragAmount).coerceIn(-deleteOpenPx, swipeMaxPx)
+                            } else {
+                                expanded = !expanded
                             }
-                        )
-                    }
-                } else {
-                    Modifier
-                }
-            )
-            .alpha(animatedAlpha)
-            .then(
-                if (highlightAlpha > 0f) {
-                    Modifier.border(
-                        width = 1.5.dp,
-                        color = HighlightColor.copy(alpha = highlightAlpha),
-                        shape = RoundedCornerShape(20.dp)
-                    )
-                } else {
-                    Modifier
-                }
-            )
-            .shadow(
-                elevation = lerp(
-                    if (todo.isCompleted) 4.dp else 8.dp,
-                    14.dp,
-                    highlightAlpha
-                ),
-                shape = RoundedCornerShape(20.dp),
-                ambientColor = lerp(getPriorityColor(todo.priority),
-                    HighlightColor, highlightGlow).copy(alpha = 0.3f + highlightAlpha * 0.25f),
-                spotColor = lerp(getPriorityColor(todo.priority),
-                    HighlightColor, highlightGlow).copy(alpha = 0.3f + highlightAlpha * 0.25f)
-            )
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onTap = {
-                        if (isSelectionMode) {
-                            onSelectionToggle()
-                        } else if (swipeOffset.value != 0f) {
-                            coroutineScope.launch { swipeOffset.animateTo(0f, animationSpec = tween(200)) }
-                        } else {
-                            expanded = !expanded
+                        },
+                        onLongPress = {
+                            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onLongPress()
                         }
-                    },
-                    onLongPress = {
-                        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onLongPress()
-                    }
-                )
-            },
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = cardColor)
-    ) {
-        // A priority-colored accent stripe on the leading edge, so priority reads at a glance
-        // while scanning the list. Drawn directly (not a separate IntrinsicSize.Min-measured
-        // Row) so it just tracks whatever height this Box ends up with each frame — including
-        // while the description below is mid collapse/expand animation — instead of lagging a
-        // beat behind it, which an intrinsic-measurement pass on an animating child caused.
-        val stripeWidthPx = with(density) { 4.dp.toPx() }
-        Box(
-            modifier = Modifier
-                .background(
-                    Brush.linearGradient(
-                        colors = listOf(
-                            accentColor.copy(alpha = 0.14f),
-                            Color.Transparent
-                        )
                     )
-                )
-                .drawBehind {
-                    drawRect(color = accentColor, size = androidx.compose.ui.geometry.Size(stripeWidthPx, size.height))
-                }
+                },
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = cardColor)
         ) {
-            Column {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Selection checkbox in selection mode; otherwise a non-interactive status
-                    // dot — completion is now toggled by swiping the card, not tapping this.
-                    if (isSelectionMode) {
-                        Checkbox(
-                            checked = isSelected,
-                            onCheckedChange = { onSelectionToggle() },
-                            colors = CheckboxDefaults.colors(
-                                checkedColor = Color(0xFF6366F1),
-                                uncheckedColor = Color.White.copy(alpha = 0.5f),
-                                checkmarkColor = Color.White
+            // A priority-colored accent stripe on the leading edge, so priority reads at a glance
+            // while scanning the list. Drawn directly (not a separate IntrinsicSize.Min-measured
+            // Row) so it just tracks whatever height this Box ends up with each frame — including
+            // while the description below is mid collapse/expand animation — instead of lagging a
+            // beat behind it, which an intrinsic-measurement pass on an animating child caused.
+            val stripeWidthPx = with(density) { 4.dp.toPx() }
+            Box(
+                modifier = Modifier
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                accentColor.copy(alpha = 0.14f),
+                                Color.Transparent
                             )
                         )
-                        Spacer(modifier = Modifier.width(12.dp))
-                    }
-
-                    // Category badge — a tinted icon chip reads much better at a glance than a
-                    // bare inline emoji sitting flush against the title text.
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(accentColor.copy(alpha = 0.16f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(text = stringResource(todo.category.icon), fontSize = 16.sp)
-                    }
-
-                    Spacer(modifier = Modifier.width(12.dp))
-
-                    // Task content
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = todo.title,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (todo.isCompleted) Color.White.copy(alpha = 0.6f) else Color.White,
-                            textDecoration = if (todo.isCompleted) TextDecoration.LineThrough else TextDecoration.None,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                    )
+                    .drawBehind {
+                        drawRect(
+                            color = accentColor,
+                            size = androidx.compose.ui.geometry.Size(stripeWidthPx, size.height)
                         )
-
-                        // Due date and priority
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Priority badge
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = getPriorityColor(todo.priority).copy(alpha = 0.2f),
-                                border = BorderStroke(1.dp, getPriorityColor(todo.priority).copy(alpha = 0.35f))
-                            ) {
-                                Text(
-                                    text = stringResource(todo.priority.displayName),
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = getPriorityColor(todo.priority)
-                                )
-                            }
-
-                            // Due date
-                            todo.dueDate?.let { dueDate ->
-                                val isOverdue = dueDate < System.currentTimeMillis() && !todo.isCompleted
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = if (isOverdue) Color(0xFFEF4444).copy(alpha = 0.2f) else Color(0xFF6B7280).copy(alpha = 0.2f)
-                                ) {
-                                    Text(
-                                        text = formatDate(context, dueDate),
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                        fontSize = 10.sp,
-                                        color = if (isOverdue) Color(0xFFEF4444) else Color.White.copy(alpha = 0.7f
-                                        )
-                                    )
-                                }
-                            }
-                        }
                     }
-
-                    // Action buttons - only show edit button and expand indicator
-                    if (!isSelectionMode) {
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            IconButton(
-                                icon = Icons.Default.Edit,
-                                onClick = onClickEdit,
-                                backgroundColor = Color(0xFF6366F1).copy(alpha = 0.2f),
-                                iconColor = Color(0xFF6366F1),
-                                size = 36.dp
-                            )
-
-                            // Expand/collapse indicator
-                            if (todo.description.isNotBlank()) {
-                                IconButton(onClick = { expanded = !expanded }, modifier = Modifier.size(24.dp)) {
-                                    Icon(
-                                        imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                                        contentDescription = if (expanded) stringResource(R.string.task_item_collapse) else stringResource(R.string.task_item_expand),
-                                        tint = Color.White.copy(alpha = 0.6f),
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Expandable description section
-                AnimatedVisibility(
-                    visible = expanded && todo.description.isNotBlank(),
-                    enter = expandVertically() + fadeIn(),
-                    exit = shrinkVertically() + fadeOut()
-                ) {
-                    Box(
+            ) {
+                Column {
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color.Black.copy(alpha = 0.1f))
-                            .padding(20.dp)
+                            .padding(20.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = buildFormattedText(todo.description, stripMarkers = true),
-                            fontSize = 14.sp,
-                            color = Color.White.copy(alpha = 0.8f),
-                            lineHeight = 20.sp
-                        )
+                        // Selection checkbox in selection mode; otherwise a non-interactive status
+                        // dot — completion is now toggled by swiping the card, not tapping this.
+                        if (isSelectionMode) {
+                            Checkbox(
+                                checked = isSelected,
+                                onCheckedChange = { onSelectionToggle() },
+                                colors = CheckboxDefaults.colors(
+                                    checkedColor = Color(0xFF6366F1),
+                                    uncheckedColor = Color.White.copy(alpha = 0.5f),
+                                    checkmarkColor = Color.White
+                                )
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                        }
+
+                        // Category badge — a tinted icon chip reads much better at a glance than a
+                        // bare inline emoji sitting flush against the title text.
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(accentColor.copy(alpha = 0.16f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(text = stringResource(todo.category.icon), fontSize = 16.sp)
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        // Task content
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = todo.title,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (todo.isCompleted) Color.White.copy(alpha = 0.6f) else Color.White,
+                                textDecoration = if (todo.isCompleted) TextDecoration.LineThrough else TextDecoration.None,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+
+                            // Due date and priority
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Priority badge
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = getPriorityColor(todo.priority).copy(alpha = 0.2f),
+                                    border = BorderStroke(
+                                        1.dp,
+                                        getPriorityColor(todo.priority).copy(alpha = 0.35f)
+                                    )
+                                ) {
+                                    Text(
+                                        text = stringResource(todo.priority.displayName),
+                                        modifier = Modifier.padding(
+                                            horizontal = 8.dp,
+                                            vertical = 4.dp
+                                        ),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = getPriorityColor(todo.priority)
+                                    )
+                                }
+
+                                // Due date
+                                todo.dueDate?.let { dueDate ->
+                                    val isOverdue =
+                                        dueDate < System.currentTimeMillis() && !todo.isCompleted
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = if (isOverdue) Color(0xFFEF4444).copy(alpha = 0.2f) else Color(
+                                            0xFF6B7280
+                                        ).copy(alpha = 0.2f)
+                                    ) {
+                                        Text(
+                                            text = formatDate(context, dueDate),
+                                            modifier = Modifier.padding(
+                                                horizontal = 8.dp,
+                                                vertical = 4.dp
+                                            ),
+                                            fontSize = 10.sp,
+                                            color = if (isOverdue) Color(0xFFEF4444) else Color.White.copy(
+                                                alpha = 0.7f
+                                            )
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // Action buttons - only show edit button and expand indicator
+                        if (!isSelectionMode) {
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                IconButton(
+                                    icon = Icons.Default.Edit,
+                                    onClick = onClickEdit,
+                                    backgroundColor = Color(0xFF6366F1).copy(alpha = 0.2f),
+                                    iconColor = Color(0xFF6366F1),
+                                    size = 36.dp
+                                )
+
+                                // Expand/collapse indicator
+                                if (todo.description.isNotBlank()) {
+                                    IconButton(
+                                        onClick = { expanded = !expanded },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                            contentDescription = if (expanded) stringResource(R.string.task_item_collapse) else stringResource(
+                                                R.string.task_item_expand
+                                            ),
+                                            tint = Color.White.copy(alpha = 0.6f),
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Expandable description section
+                    AnimatedVisibility(
+                        visible = expanded && todo.description.isNotBlank(),
+                        enter = expandVertically() + fadeIn(),
+                        exit = shrinkVertically() + fadeOut()
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color.Black.copy(alpha = 0.1f))
+                                .padding(20.dp)
+                        ) {
+                            Text(
+                                text = buildFormattedText(todo.description, stripMarkers = true),
+                                fontSize = 14.sp,
+                                color = Color.White.copy(alpha = 0.8f),
+                                lineHeight = 20.sp
+                            )
+                        }
                     }
                 }
             }
         }
+
     }
 
     if (showDeleteConfirm) {
         DeleteDialog(
             onDismiss = {
                 showDeleteConfirm = false
+                onSwipeOpenChanged(false)
                 coroutineScope.launch { swipeOffset.animateTo(0f, animationSpec = tween(200)) }
             },
             onConfirm = {
                 showDeleteConfirm = false
+                onSwipeOpenChanged(false)
                 onDelete()
             }
         )
