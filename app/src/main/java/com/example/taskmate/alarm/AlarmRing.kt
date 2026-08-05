@@ -106,21 +106,14 @@ class AlarmRingActivity : ComponentActivity() {
     }
 
     private fun startRinging() {
-        // getActualDefaultRingtoneUri/getDefaultUri, setDataSource, and the synchronous prepare()
-        // below can all throw (null uri, unreadable/missing ringtone content, no default sound
-        // configured — all seen on real OEM ROMs, confirmed here with a Vivo device failing
-        // native setDataSource on its own default alarm ringtone URI) — previously uncaught, which
-        // took down the whole activity the instant the alarm notification was tapped. Rather than
-        // giving up the moment ONE candidate URI fails, try each plausible system sound in turn
-        // and only fall back to vibration-only once all of them have failed.
-        val candidateUris = listOfNotNull(
-            RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_ALARM),
-            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM),
-            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE),
-            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-        ).distinct()
-
-        for (uri in candidateUris) {
+        // setDataSource and the synchronous prepare() below can both throw (unreadable/missing
+        // ringtone content, no default sound configured — all seen on real OEM ROMs, confirmed
+        // here with a Vivo device failing native setDataSource on its own default alarm ringtone
+        // URI) — previously uncaught, which took down the whole activity the instant the alarm
+        // notification was tapped. Rather than giving up the moment ONE candidate URI fails, try
+        // each plausible system sound in turn and only fall back to vibration-only once all of
+        // them have failed.
+        for (uri in AlarmSound.candidateUris(this)) {
             // Assigned to the field before setDataSource/prepare (which is exactly where this
             // throws) rather than after, so a failed attempt is still reachable for release()
             // here instead of leaking a constructed-but-never-released native player — confirmed
@@ -134,6 +127,14 @@ class AlarmRingActivity : ComponentActivity() {
                         .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                         .build()
                 )
+                // A failure surfacing here (mid-loop, well after the setup this try/catch already
+                // covers) would otherwise just go silent with nothing in logcat to explain why —
+                // returning true marks it handled so the platform doesn't also invoke the
+                // (unset) completion listener on top of it.
+                player.setOnErrorListener { _, what, extra ->
+                    Log.w("AlarmRingActivity", "MediaPlayer error during playback: what=$what extra=$extra")
+                    true
+                }
                 player.setDataSource(this, uri)
                 player.isLooping = true
                 player.prepare()

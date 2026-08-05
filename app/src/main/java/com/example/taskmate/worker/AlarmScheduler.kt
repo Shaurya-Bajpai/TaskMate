@@ -4,6 +4,7 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import com.example.taskmate.MainActivity
 import com.example.taskmate.data.ReminderOffset
 import com.example.taskmate.data.Todo
@@ -14,6 +15,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.collections.ifEmpty
 
 object AlarmScheduler {
+    private const val TAG = "AlarmScheduler"
 
     /** Schedules one independently-timed alarm per selected reminder offset. */
     fun scheduleAlarm(context: Context, task: Todo) {
@@ -38,46 +40,63 @@ object AlarmScheduler {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
         val requestIds = ReminderOffset.entries.map { reminderRequestId(taskId, it) } + snoozeRequestId(taskId)
         requestIds.forEach { requestId ->
-            val pendingIntent = PendingIntent.getBroadcast(
-                context,
-                requestId,
-                Intent(context, AlarmReceiver::class.java),
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            alarmManager.cancel(pendingIntent)
+            try {
+                val pendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    requestId,
+                    Intent(context, AlarmReceiver::class.java),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                alarmManager.cancel(pendingIntent)
+            } catch (e: Exception) {
+                // Cancelling is best-effort cleanup (e.g. for a task that's being deleted) — a
+                // failure here must never block the rest of the cancellation sweep, let alone
+                // whatever UI action (delete, edit) triggered it.
+                Log.w(TAG, "Failed to cancel alarm requestId=$requestId for task=$taskId", e)
+            }
         }
     }
 
     private fun scheduleAlarmAt(context: Context, requestId: Int, taskId: Long, taskTitle: String, triggerTime: Long) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
 
-        val alarmIntent = Intent(context, AlarmReceiver::class.java).apply {
-            putExtra(AlarmReceiver.EXTRA_TASK_ID, taskId)
-            putExtra(AlarmReceiver.EXTRA_TASK_TITLE, taskTitle)
-            putExtra(AlarmReceiver.EXTRA_NOTIFICATION_ID, requestId)
-        }
-        val operationPendingIntent = PendingIntent.getBroadcast(
-            context,
-            requestId,
-            alarmIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        // AlarmManager calls are wrapped rather than left to propagate: setAlarmClock() doesn't
+        // need the SCHEDULE_EXACT_ALARM permission that setExactAndAllowWhileIdle would, but
+        // some heavily-customized OEM builds impose their own undocumented restrictions on
+        // AlarmManager regardless. A scheduling failure should degrade to "this one reminder
+        // silently isn't set" rather than crash whatever UI flow (saving a task, boot-time
+        // rescheduling) triggered it.
+        try {
+            val alarmIntent = Intent(context, AlarmReceiver::class.java).apply {
+                putExtra(AlarmReceiver.EXTRA_TASK_ID, taskId)
+                putExtra(AlarmReceiver.EXTRA_TASK_TITLE, taskTitle)
+                putExtra(AlarmReceiver.EXTRA_NOTIFICATION_ID, requestId)
+            }
+            val operationPendingIntent = PendingIntent.getBroadcast(
+                context,
+                requestId,
+                alarmIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
 
-        // Shown if the user taps the system status-bar "next alarm" indicator.
-        val showIntent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            putExtra("taskId", taskId)
-        }
-        val showPendingIntent = PendingIntent.getActivity(
-            context,
-            requestId,
-            showIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+            // Shown if the user taps the system status-bar "next alarm" indicator.
+            val showIntent = Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                putExtra("taskId", taskId)
+            }
+            val showPendingIntent = PendingIntent.getActivity(
+                context,
+                requestId,
+                showIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
 
-        alarmManager.setAlarmClock(
-            AlarmManager.AlarmClockInfo(triggerTime, showPendingIntent),
-            operationPendingIntent
-        )
+            alarmManager.setAlarmClock(
+                AlarmManager.AlarmClockInfo(triggerTime, showPendingIntent),
+                operationPendingIntent
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to schedule alarm requestId=$requestId for task=$taskId", e)
+        }
     }
 }
