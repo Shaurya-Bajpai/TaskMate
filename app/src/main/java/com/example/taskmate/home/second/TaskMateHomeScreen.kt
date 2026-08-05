@@ -18,6 +18,7 @@ import androidx.compose.material.Text
 import androidx.compose.material.TextButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -67,11 +68,32 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null) {
     // another. Asked once, the first time the home screen loads on a device where the app isn't
     // already exempted.
     var showBatteryOptimizationDialog by remember { mutableStateOf(false) }
+
+    // Confirmed on this exact codebase: granting the standard battery-optimization exemption above
+    // on a Vivo device still left the alarm never firing, because Vivo (like Xiaomi/Oppo/Huawei/...)
+    // guards background activity with its own separate, undocumented "autostart manager" that the
+    // standard Android exemption doesn't touch at all. Prompted as a second, distinct step — only
+    // on manufacturers known to have one — once the battery-optimization step has been resolved.
+    var showAutoStartDialog by remember { mutableStateOf(false) }
+    val aggressiveOemManufacturers = remember {
+        setOf("xiaomi", "vivo", "oppo", "huawei", "honor", "oneplus", "samsung", "letv", "leeco", "asus")
+    }
+
+    fun maybeShowAutoStartPrompt() {
+        val prefs = context.getSharedPreferences("taskmate_prefs", android.content.Context.MODE_PRIVATE)
+        val alreadyAsked = prefs.getBoolean("asked_autostart_settings", false)
+        if (!alreadyAsked && android.os.Build.MANUFACTURER.lowercase() in aggressiveOemManufacturers) {
+            showAutoStartDialog = true
+        }
+    }
+
     LaunchedEffect(Unit) {
         val prefs = context.getSharedPreferences("taskmate_prefs", android.content.Context.MODE_PRIVATE)
         val alreadyAsked = prefs.getBoolean("asked_battery_optimization", false)
         if (!alreadyAsked && !BatteryOptimizationHelper.isIgnoringBatteryOptimizations(context)) {
             showBatteryOptimizationDialog = true
+        } else {
+            maybeShowAutoStartPrompt()
         }
     }
 
@@ -409,6 +431,7 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null) {
             onDismissRequest = {
                 showBatteryOptimizationDialog = false
                 markAsked()
+                maybeShowAutoStartPrompt()
             },
             icon = {
                 Box(
@@ -455,6 +478,7 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null) {
                     showBatteryOptimizationDialog = false
                     markAsked()
                     BatteryOptimizationHelper.requestIgnoreBatteryOptimizations(context)
+                    maybeShowAutoStartPrompt()
                 }) {
                     Text(
                         stringResource(id = R.string.battery_optimization_allow),
@@ -467,6 +491,87 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null) {
                 TextButton(onClick = {
                     showBatteryOptimizationDialog = false
                     markAsked()
+                    maybeShowAutoStartPrompt()
+                }) {
+                    androidx.compose.material3.Text(
+                        stringResource(id = R.string.battery_optimization_not_now),
+                        color = Color.White.copy(alpha = 0.6f)
+                    )
+                }
+            },
+            containerColor = Color(0xFF2D3748),
+            shape = RoundedCornerShape(24.dp)
+        )
+    }
+
+    if (showAutoStartDialog) {
+        fun markAutoStartAsked() {
+            context.getSharedPreferences("taskmate_prefs", android.content.Context.MODE_PRIVATE)
+                .edit().putBoolean("asked_autostart_settings", true).apply()
+        }
+
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = {
+                showAutoStartDialog = false
+                markAutoStartAsked()
+            },
+            icon = {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(
+                            Brush.radialGradient(
+                                colors = listOf(
+                                    Color(0xFF6366F1).copy(alpha = 0.35f),
+                                    Color(0xFF6366F1).copy(alpha = 0.1f)
+                                )
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = null,
+                        tint = Color(0xFF6366F1),
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            },
+            title = {
+                Text(
+                    stringResource(id = R.string.autostart_title),
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            text = {
+                Text(
+                    stringResource(id = R.string.autostart_desc),
+                    color = Color.White.copy(alpha = 0.75f),
+                    textAlign = TextAlign.Center,
+                    lineHeight = 20.sp
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showAutoStartDialog = false
+                    markAutoStartAsked()
+                    BatteryOptimizationHelper.openAutoStartSettings(context)
+                }) {
+                    Text(
+                        stringResource(id = R.string.autostart_open_settings),
+                        color = Color(0xFF6366F1),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showAutoStartDialog = false
+                    markAutoStartAsked()
                 }) {
                     Text(
                         stringResource(id = R.string.battery_optimization_not_now),

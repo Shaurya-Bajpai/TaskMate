@@ -29,6 +29,9 @@
     <string name="battery_optimization_desc">Some phones stop background apps to save battery, which can silently keep your task alarms from ringing. Allow TaskMate to skip battery optimization so reminders always fire on time.</string>
     <string name="battery_optimization_allow">Allow</string>
     <string name="battery_optimization_not_now">Not now</string>
+    <string name="autostart_title">One more step for reliable alarms</string>
+    <string name="autostart_desc">Your phone\'s manufacturer has its own app-management settings on top of Android\'s. Find TaskMate there and enable \"Autostart\" or \"Allow background activity\" so alarms don\'t get silently blocked.</string>
+    <string name="autostart_open_settings">Open settings</string>
     <string name="set_time">Set Time</string>
     <string name="delete_selected">Delete Selected</string>
     <string name="edit_task">Edit Task</string>

@@ -35,4 +35,65 @@ object BatteryOptimizationHelper {
         }
         context.startActivity(intent)
     }
+
+    /**
+     * Standard `isIgnoringBatteryOptimizations()` only reports AOSP's own Doze whitelist — it says
+     * nothing about the separate, undocumented "autostart" / "background app management" managers
+     * several OEMs ship on top (confirmed on this exact codebase: on a Vivo device, the app was
+     * granted the standard exemption and its alarm still never fired). There's no public API for
+     * these, only known-by-convention component names per OEM that can vanish or move between
+     * skin versions — so this is a best-effort deep link into whichever settings screen exists,
+     * not a guarantee, and callers must treat a `true` return as "we found something to show the
+     * user," not "the permission is now granted."
+     */
+    fun openAutoStartSettings(context: Context): Boolean {
+        val candidates = when (Build.MANUFACTURER.lowercase()) {
+            "xiaomi" -> listOf(
+                "com.miui.securitycenter" to "com.miui.permcenter.autostart.AutoStartManagementActivity"
+            )
+            "vivo" -> listOf(
+                "com.vivo.permissionmanager" to "com.vivo.permissionmanager.activity.BgStartUpManagerActivity",
+                "com.vivo.permissionmanager" to "com.vivo.permissionmanager.activity.PurviewTabActivity",
+                "com.iqoo.secure" to "com.iqoo.secure.ui.phoneoptimize.AddWhiteListActivity"
+            )
+            "oppo" -> listOf(
+                "com.coloros.safecenter" to "com.coloros.safecenter.permission.startup.StartupAppListActivity",
+                "com.oppo.safe" to "com.oppo.safe.permission.startup.StartupAppListActivity",
+                "com.coloros.safecenter" to "com.coloros.safecenter.startupapp.StartupAppListActivity"
+            )
+            "huawei", "honor" -> listOf(
+                "com.huawei.systemmanager" to "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity",
+                "com.huawei.systemmanager" to "com.huawei.systemmanager.optimize.process.ProtectActivity"
+            )
+            "oneplus" -> listOf(
+                "com.oneplus.security" to "com.oneplus.security.chainlaunch.view.ChainLaunchAppListActivity"
+            )
+            "samsung" -> listOf(
+                "com.samsung.android.lool" to "com.samsung.android.sm.ui.battery.BatteryActivity"
+            )
+            "letv", "leeco" -> listOf(
+                "com.letv.android.letvsafe" to "com.letv.android.letvsafe.AutobootManageActivity"
+            )
+            "asus" -> listOf(
+                "com.asus.mobilemanager" to "com.asus.mobilemanager.autostart.AutoStartActivity"
+            )
+            else -> emptyList()
+        }
+
+        for ((pkg, cls) in candidates) {
+            try {
+                val intent = Intent().apply {
+                    component = ComponentName(pkg, cls)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+                return true
+            } catch (e: ActivityNotFoundException) {
+                // Try the next known candidate for this manufacturer.
+            } catch (e: SecurityException) {
+                Log.w("BatteryOptimizationHelper", "Denied launching $pkg/$cls", e)
+            }
+        }
+        return false
+    }
 }

@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
+import android.util.Log
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -105,19 +106,44 @@ class AlarmRingActivity : ComponentActivity() {
     }
 
     private fun startRinging() {
-        val alarmUri = RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_ALARM)
-            ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-        mediaPlayer = MediaPlayer().apply {
-            setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_ALARM)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .build()
-            )
-            setDataSource(this@AlarmRingActivity, alarmUri)
-            isLooping = true
-            prepare()
-            start()
+        // getActualDefaultRingtoneUri/getDefaultUri, setDataSource, and the synchronous prepare()
+        // below can all throw (null uri, unreadable/missing ringtone content, no default sound
+        // configured — all seen on real OEM ROMs, confirmed here with a Vivo device failing
+        // native setDataSource on its own default alarm ringtone URI) — previously uncaught, which
+        // took down the whole activity the instant the alarm notification was tapped. Rather than
+        // giving up the moment ONE candidate URI fails, try each plausible system sound in turn
+        // and only fall back to vibration-only once all of them have failed.
+        val candidateUris = listOfNotNull(
+            RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_ALARM),
+            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM),
+            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE),
+            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+        ).distinct()
+
+        for (uri in candidateUris) {
+            // Assigned to the field before setDataSource/prepare (which is exactly where this
+            // throws) rather than after, so a failed attempt is still reachable for release()
+            // here instead of leaking a constructed-but-never-released native player — confirmed
+            // via "MediaPlayer finalized without being released" in logcat before this fix.
+            val player = MediaPlayer()
+            mediaPlayer = player
+            try {
+                player.setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+                )
+                player.setDataSource(this, uri)
+                player.isLooping = true
+                player.prepare()
+                player.start()
+                break
+            } catch (e: Exception) {
+                Log.w("AlarmRingActivity", "Couldn't play alarm sound from $uri, trying next candidate", e)
+                player.runCatching { release() }
+                mediaPlayer = null
+            }
         }
 
         val pattern = longArrayOf(0, 800, 800)
