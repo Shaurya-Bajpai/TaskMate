@@ -203,8 +203,8 @@ fun TopAppBar(
                     // Search mode toggle button
                     AnimatedVisibility(
                         visible = isSearchActive || searchQuery.isNotEmpty(),
-                        enter = slideInHorizontally { it } + fadeIn(),
-                        exit = slideOutHorizontally { it } + fadeOut()
+                        enter = expandHorizontally() + fadeIn(),
+                        exit = shrinkHorizontally() + fadeOut()
                     ) {
                         TextButton(
                             onClick = {
