@@ -20,7 +20,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.example.taskmate.R
 import com.example.taskmate.data.*
 import com.example.taskmate.home.second.FilterType
@@ -40,6 +43,27 @@ import kotlinx.coroutines.delay
 fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null) {
     val activity = LocalContext.current as? Activity
     val focusManager = LocalFocusManager.current
+
+    // Direct IME-visibility signal, kept separate from isSearchActive on purpose: this only
+    // controls the FAB, without pulling in isSearchActive's other side effects (header collapsing,
+    // placeholder text swap, height animation).
+    //
+    // WindowInsets.isImeVisible doesn't reliably update here: this activity uses classic
+    // windowSoftInputMode="adjustResize" (not edge-to-edge), so the OS resizes the window itself
+    // instead of reporting the keyboard as an ime WindowInsets overlay — which is what that
+    // Compose API actually watches. Querying the view's current root window insets directly, the
+    // same way TopAppBar already does for its own keyboard-close handling, reports IME visibility
+    // correctly regardless of resize vs. edge-to-edge mode.
+    val view = LocalView.current
+    var isKeyboardVisible by remember { mutableStateOf(false) }
+    DisposableEffect(view) {
+        val listener = android.view.ViewTreeObserver.OnGlobalLayoutListener {
+            isKeyboardVisible = ViewCompat.getRootWindowInsets(view)?.isVisible(WindowInsetsCompat.Type.ime()) ?: false
+        }
+        view.viewTreeObserver.addOnGlobalLayoutListener(listener)
+        onDispose { view.viewTreeObserver.removeOnGlobalLayoutListener(listener) }
+    }
+
     var editingTodo by remember { mutableStateOf<Todo?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var searchQuery by remember { mutableStateOf("") }
@@ -105,10 +129,19 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null) {
     }
 
     BackHandler {
-        if (isSelectionMode) {
-            isSelectionMode = false // Cancel selection
-        } else {
-            showExitDialog = true // Show exit dialog
+        when {
+            isSelectionMode -> isSelectionMode = false // Cancel selection
+            searchQuery.isNotEmpty() -> {
+                // A prior back press may already have been consumed by the OS just to dismiss
+                // the keyboard (it never reaches this handler at all) — so by the time back
+                // reaches here with a query still typed, it reads as a second/next press and
+                // should act like the Cancel button: clear the search instead of falling through
+                // to the exit-app dialog.
+                searchQuery = ""
+                focusManager.clearFocus()
+                isSearchActive = false
+            }
+            else -> showExitDialog = true // Show exit dialog
         }
     }
 
@@ -255,14 +288,15 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null) {
                         }
                     }
 
-                    // Enhanced FAB with conditional appearance
+                    // Enhanced FAB with conditional appearance. Hidden while the keyboard is up too
+                    // (isKeyboardVisible), not just during selection.
                     if (isSelectionMode) {
                         DeleteFAB(
                             onClick = {
                                 showDeleteDialog = true
                             }
                         )
-                    } else {
+                    } else if (!isKeyboardVisible) {
                         FloatingActionButton(
                             onClick = {
                                 editingTodo = null
