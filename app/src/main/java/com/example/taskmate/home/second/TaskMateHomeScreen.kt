@@ -1,6 +1,7 @@
 package com.example.taskmate.home
 
 import android.app.Activity
+import android.content.Context
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.*
@@ -10,21 +11,33 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.AlertDialog
 import androidx.compose.material.Text
 import androidx.compose.material.TextButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.example.taskmate.R
+import com.example.taskmate.alarm.BatteryOptimizationHelper
 import com.example.taskmate.data.*
 import com.example.taskmate.home.second.FilterType
 import com.example.taskmate.home.second.animation.FloatingParticles
@@ -38,11 +51,29 @@ import com.example.taskmate.home.second.state.NoResultsState
 import com.example.taskmate.home.second.topbar.TopAppBar
 import com.example.taskmate.viewmodel.TodoViewModel
 import kotlinx.coroutines.delay
+import androidx.core.content.edit
 
 @Composable
 fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null) {
     val activity = LocalContext.current as? Activity
+    val context = LocalContext.current
     val focusManager = LocalFocusManager.current
+
+
+    // Alarms use AlarmManager.setAlarmClock(), which is exempt from Doze/App Standby — but several
+    // OEM battery managers (Xiaomi, Oppo, Vivo, Samsung, OnePlus, ...) layer their own process-
+    // killing restrictions on top of that regardless, and only the user can grant the exemption.
+    // This is the most common reason a task alarm fires reliably on one phone but never on
+    // another. Asked once, the first time the home screen loads on a device where the app isn't
+    // already exempted.
+    var showBatteryOptimizationDialog by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        val prefs = context.getSharedPreferences("taskmate_prefs", android.content.Context.MODE_PRIVATE)
+        val alreadyAsked = prefs.getBoolean("asked_battery_optimization", false)
+        if (!alreadyAsked && !BatteryOptimizationHelper.isIgnoringBatteryOptimizations(context)) {
+            showBatteryOptimizationDialog = true
+        }
+    }
 
     // Direct IME-visibility signal, kept separate from isSearchActive on purpose: this only
     // controls the FAB, without pulling in isSearchActive's other side effects (header collapsing,
@@ -366,6 +397,85 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null) {
             onConfirm = {
                 activity?.finish()
             }
+        )
+    }
+    if (showBatteryOptimizationDialog) {
+        fun markAsked() {
+            context.getSharedPreferences("taskmate_prefs", Context.MODE_PRIVATE)
+                .edit { putBoolean("asked_battery_optimization", true) }
+        }
+
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = {
+                showBatteryOptimizationDialog = false
+                markAsked()
+            },
+            icon = {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(
+                            Brush.radialGradient(
+                                colors = listOf(
+                                    Color(0xFF6366F1).copy(alpha = 0.35f),
+                                    Color(0xFF6366F1).copy(alpha = 0.1f)
+                                )
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Notifications,
+                        contentDescription = null,
+                        tint = Color(0xFF6366F1),
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            },
+            title = {
+                Text(
+                    stringResource(id = R.string.battery_optimization_title),
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            text = {
+                Text(
+                    stringResource(id = R.string.battery_optimization_desc),
+                    color = Color.White.copy(alpha = 0.75f),
+                    textAlign = TextAlign.Center,
+                    lineHeight = 20.sp
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showBatteryOptimizationDialog = false
+                    markAsked()
+                    BatteryOptimizationHelper.requestIgnoreBatteryOptimizations(context)
+                }) {
+                    Text(
+                        stringResource(id = R.string.battery_optimization_allow),
+                        color = Color(0xFF6366F1),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showBatteryOptimizationDialog = false
+                    markAsked()
+                }) {
+                    Text(
+                        stringResource(id = R.string.battery_optimization_not_now),
+                        color = Color.White.copy(alpha = 0.6f)
+                    )
+                }
+            },
+            containerColor = Color(0xFF2D3748),
+            shape = RoundedCornerShape(24.dp)
         )
     }
 }

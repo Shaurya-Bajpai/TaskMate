@@ -25,6 +25,10 @@
     <string name="delete_task_desc">Are you sure you want to delete?\nThis action cannot be undone.</string>
     <string name="exit_title">Exit</string>
     <string name="exit_desc">Do you want to exit from TaskMate?</string>
+    <string name="battery_optimization_title">Keep alarms reliable?</string>
+    <string name="battery_optimization_desc">Some phones stop background apps to save battery, which can silently keep your task alarms from ringing. Allow TaskMate to skip battery optimization so reminders always fire on time.</string>
+    <string name="battery_optimization_allow">Allow</string>
+    <string name="battery_optimization_not_now">Not now</string>
     <string name="set_time">Set Time</string>
     <string name="delete_selected">Delete Selected</string>
     <string name="edit_task">Edit Task</string>
