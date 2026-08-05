@@ -2,6 +2,7 @@ package com.example.taskmate.home.second
 
 import android.content.Context
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -14,12 +15,12 @@ import java.util.Date
 import java.util.Locale
 
 enum class FilterType(val displayName: Int, val icon: ImageVector) {
-    ALL(R.string.filter_all, Icons.Default.List),
     ACTIVE(R.string.filter_active, Icons.Default.PlayArrow),
     COMPLETED(R.string.filter_done, Icons.Default.Check),
     HIGH_PRIORITY(R.string.filter_high, Icons.Default.KeyboardArrowUp),
     MEDIUM_PRIORITY(R.string.filter_medium, Icons.Default.Close),
-    LOW_PRIORITY(R.string.filter_low, Icons.Default.KeyboardArrowDown)
+    LOW_PRIORITY(R.string.filter_low, Icons.Default.KeyboardArrowDown),
+    ALL(R.string.filter_all, Icons.AutoMirrored.Filled.List),
 }
 
 fun getCategoryColor(category: Category): Color {

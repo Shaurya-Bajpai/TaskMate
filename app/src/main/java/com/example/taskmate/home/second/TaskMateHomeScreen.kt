@@ -67,7 +67,7 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null) {
     var editingTodo by remember { mutableStateOf<Todo?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var searchQuery by remember { mutableStateOf("") }
-    var selectedFilter by remember { mutableStateOf(FilterType.ALL) }
+    var selectedFilter by remember { mutableStateOf(FilterType.ACTIVE) }
     var isSearchActive by remember { mutableStateOf(false) }
 
     // Dialog states
