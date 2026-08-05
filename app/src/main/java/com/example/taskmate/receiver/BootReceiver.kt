@@ -3,6 +3,7 @@ package com.example.taskmate.receiver
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import com.example.taskmate.data.ReminderType
 import com.example.taskmate.database.TodoRepository
 import com.example.taskmate.worker.AlarmScheduler
@@ -28,7 +29,18 @@ class BootReceiver : BroadcastReceiver() {
                 val activeTasks = repository.getActiveTasks().first()
                 activeTasks
                     .filter { it.reminderType == ReminderType.ALARM && it.dueDate != null }
-                    .forEach { AlarmScheduler.scheduleAlarm(context, it) }
+                    .forEach { task ->
+                        // AlarmScheduler itself no longer throws on a scheduling failure, but this
+                        // stays defensive-in-depth: one malformed task must never stop every task
+                        // after it in the list from being rescheduled post-reboot.
+                        try {
+                            AlarmScheduler.scheduleAlarm(context, task)
+                        } catch (e: Exception) {
+                            Log.e("BootReceiver", "Failed to reschedule alarm for task=${task.id}", e)
+                        }
+                    }
+            } catch (e: Exception) {
+                Log.e("BootReceiver", "Failed to reschedule alarms after boot", e)
             } finally {
                 pendingResult.finish()
             }

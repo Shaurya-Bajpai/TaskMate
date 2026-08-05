@@ -19,16 +19,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusTarget
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.example.taskmate.R
 import com.example.taskmate.color.TaskMateColors
 
@@ -45,6 +50,26 @@ fun TopAppBar(
     val focusRequester = remember { FocusRequester() }
     val focusManager: FocusManager = LocalFocusManager.current
 
+    var searchFocused by remember { mutableStateOf(false) }
+    val clearFocusRequester = remember { FocusRequester() }
+
+    // Pressing back while the keyboard is showing dismisses it at the OS level and never reaches
+    // Compose's back dispatcher — so there's no callback to hook for "keyboard just closed" other
+    // than watching the window's actual IME-visibility inset directly. That changes no matter how
+    // the keyboard closed (back press, gesture, done/search action), and only then do we drop
+    // focus, so the search field's border doesn't stay stuck highlighted as if still active.
+    val view = LocalView.current
+    DisposableEffect(view) {
+        val listener = android.view.ViewTreeObserver.OnGlobalLayoutListener {
+            val imeVisible = ViewCompat.getRootWindowInsets(view)?.isVisible(WindowInsetsCompat.Type.ime()) ?: true
+            if (!imeVisible && searchFocused) {
+                clearFocusRequester.requestFocus()
+            }
+        }
+        view.viewTreeObserver.addOnGlobalLayoutListener(listener)
+        onDispose { view.viewTreeObserver.removeOnGlobalLayoutListener(listener) }
+    }
+
     // Height animation
     val topBarHeight by animateDpAsState(
         targetValue = if (isSearchActive) 100.dp else 180.dp,
@@ -60,6 +85,14 @@ fun TopAppBar(
     ) {
         Box(modifier = Modifier.fillMaxSize().background(TaskMateColors.primaryGradient)) {
             Column(modifier = Modifier.fillMaxSize().padding(20.dp)) {
+                // Invisible focus target: requesting focus here (instead of trying to "clear"
+                // focus) is what reliably drops the search field's focused-border rendering.
+                Box(
+                    modifier = Modifier
+                        .size(1.dp)
+                        .focusRequester(clearFocusRequester)
+                        .focusTarget()
+                )
                 // Header with stats (hide when search is active)
                 AnimatedVisibility(
                     visible = !isSearchActive,
@@ -148,7 +181,8 @@ fun TopAppBar(
                         modifier = Modifier
                             .weight(1f)
                             .height(56.dp)
-                            .focusRequester(focusRequester),
+                            .focusRequester(focusRequester)
+                            .onFocusChanged { searchFocused = it.isFocused },
                         textStyle = LocalTextStyle.current.copy(
                             color = Color.White,
                             fontSize = 16.sp
@@ -169,8 +203,8 @@ fun TopAppBar(
                     // Search mode toggle button
                     AnimatedVisibility(
                         visible = isSearchActive || searchQuery.isNotEmpty(),
-                        enter = slideInHorizontally { it } + fadeIn(),
-                        exit = slideOutHorizontally { it } + fadeOut()
+                        enter = expandHorizontally() + fadeIn(),
+                        exit = shrinkHorizontally() + fadeOut()
                     ) {
                         TextButton(
                             onClick = {

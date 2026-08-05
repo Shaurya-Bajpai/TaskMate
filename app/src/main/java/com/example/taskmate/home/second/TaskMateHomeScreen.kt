@@ -1,6 +1,7 @@
 package com.example.taskmate.home
 
 import android.app.Activity
+import android.content.Context
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.*
@@ -10,17 +11,34 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.AlertDialog
 import androidx.compose.material.Text
 import androidx.compose.material.TextButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import com.example.taskmate.R
+import com.example.taskmate.alarm.BatteryOptimizationHelper
 import com.example.taskmate.data.*
 import com.example.taskmate.home.second.FilterType
 import com.example.taskmate.home.second.animation.FloatingParticles
@@ -34,15 +52,75 @@ import com.example.taskmate.home.second.state.NoResultsState
 import com.example.taskmate.home.second.topbar.TopAppBar
 import com.example.taskmate.viewmodel.TodoViewModel
 import kotlinx.coroutines.delay
+import androidx.core.content.edit
 
 @Composable
 fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null) {
     val activity = LocalContext.current as? Activity
+    val context = LocalContext.current
     val focusManager = LocalFocusManager.current
+
+
+    // Alarms use AlarmManager.setAlarmClock(), which is exempt from Doze/App Standby — but several
+    // OEM battery managers (Xiaomi, Oppo, Vivo, Samsung, OnePlus, ...) layer their own process-
+    // killing restrictions on top of that regardless, and only the user can grant the exemption.
+    // This is the most common reason a task alarm fires reliably on one phone but never on
+    // another. Asked once, the first time the home screen loads on a device where the app isn't
+    // already exempted.
+    var showBatteryOptimizationDialog by remember { mutableStateOf(false) }
+
+    // Confirmed on this exact codebase: granting the standard battery-optimization exemption above
+    // on a Vivo device still left the alarm never firing, because Vivo (like Xiaomi/Oppo/Huawei/...)
+    // guards background activity with its own separate, undocumented "autostart manager" that the
+    // standard Android exemption doesn't touch at all. Prompted as a second, distinct step — only
+    // on manufacturers known to have one — once the battery-optimization step has been resolved.
+    var showAutoStartDialog by remember { mutableStateOf(false) }
+    val aggressiveOemManufacturers = remember {
+        setOf("xiaomi", "vivo", "oppo", "huawei", "honor", "oneplus", "samsung", "letv", "leeco", "asus")
+    }
+
+    fun maybeShowAutoStartPrompt() {
+        val prefs = context.getSharedPreferences("taskmate_prefs", android.content.Context.MODE_PRIVATE)
+        val alreadyAsked = prefs.getBoolean("asked_autostart_settings", false)
+        if (!alreadyAsked && android.os.Build.MANUFACTURER.lowercase() in aggressiveOemManufacturers) {
+            showAutoStartDialog = true
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        val prefs = context.getSharedPreferences("taskmate_prefs", android.content.Context.MODE_PRIVATE)
+        val alreadyAsked = prefs.getBoolean("asked_battery_optimization", false)
+        if (!alreadyAsked && !BatteryOptimizationHelper.isIgnoringBatteryOptimizations(context)) {
+            showBatteryOptimizationDialog = true
+        } else {
+            maybeShowAutoStartPrompt()
+        }
+    }
+
+    // Direct IME-visibility signal, kept separate from isSearchActive on purpose: this only
+    // controls the FAB, without pulling in isSearchActive's other side effects (header collapsing,
+    // placeholder text swap, height animation).
+    //
+    // WindowInsets.isImeVisible doesn't reliably update here: this activity uses classic
+    // windowSoftInputMode="adjustResize" (not edge-to-edge), so the OS resizes the window itself
+    // instead of reporting the keyboard as an ime WindowInsets overlay — which is what that
+    // Compose API actually watches. Querying the view's current root window insets directly, the
+    // same way TopAppBar already does for its own keyboard-close handling, reports IME visibility
+    // correctly regardless of resize vs. edge-to-edge mode.
+    val view = LocalView.current
+    var isKeyboardVisible by remember { mutableStateOf(false) }
+    DisposableEffect(view) {
+        val listener = android.view.ViewTreeObserver.OnGlobalLayoutListener {
+            isKeyboardVisible = ViewCompat.getRootWindowInsets(view)?.isVisible(WindowInsetsCompat.Type.ime()) ?: false
+        }
+        view.viewTreeObserver.addOnGlobalLayoutListener(listener)
+        onDispose { view.viewTreeObserver.removeOnGlobalLayoutListener(listener) }
+    }
+
     var editingTodo by remember { mutableStateOf<Todo?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var searchQuery by remember { mutableStateOf("") }
-    var selectedFilter by remember { mutableStateOf(FilterType.ALL) }
+    var selectedFilter by remember { mutableStateOf(FilterType.ACTIVE) }
     var isSearchActive by remember { mutableStateOf(false) }
 
     // Dialog states
@@ -104,10 +182,19 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null) {
     }
 
     BackHandler {
-        if (isSelectionMode) {
-            isSelectionMode = false // Cancel selection
-        } else {
-            showExitDialog = true // Show exit dialog
+        when {
+            isSelectionMode -> isSelectionMode = false // Cancel selection
+            searchQuery.isNotEmpty() -> {
+                // A prior back press may already have been consumed by the OS just to dismiss
+                // the keyboard (it never reaches this handler at all) — so by the time back
+                // reaches here with a query still typed, it reads as a second/next press and
+                // should act like the Cancel button: clear the search instead of falling through
+                // to the exit-app dialog.
+                searchQuery = ""
+                focusManager.clearFocus()
+                isSearchActive = false
+            }
+            else -> showExitDialog = true // Show exit dialog
         }
     }
 
@@ -173,6 +260,8 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null) {
                         filteredTodos.isEmpty() -> {
                             if (todoList.isEmpty()) {
                                 EmptyState()
+                            } else if (searchQuery.isEmpty()) {
+                                NoResultsState(searchQuery, R.string.no_tasks_yet)
                             } else {
                                 NoResultsState(searchQuery)
                             }
@@ -252,14 +341,15 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null) {
                         }
                     }
 
-                    // Enhanced FAB with conditional appearance
+                    // Enhanced FAB with conditional appearance. Hidden while the keyboard is up too
+                    // (isKeyboardVisible), not just during selection.
                     if (isSelectionMode) {
                         DeleteFAB(
                             onClick = {
                                 showDeleteDialog = true
                             }
                         )
-                    } else {
+                    } else if (!isKeyboardVisible) {
                         FloatingActionButton(
                             onClick = {
                                 editingTodo = null
@@ -329,6 +419,168 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null) {
             onConfirm = {
                 activity?.finish()
             }
+        )
+    }
+    if (showBatteryOptimizationDialog) {
+        fun markAsked() {
+            context.getSharedPreferences("taskmate_prefs", Context.MODE_PRIVATE)
+                .edit { putBoolean("asked_battery_optimization", true) }
+        }
+
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = {
+                showBatteryOptimizationDialog = false
+                markAsked()
+                maybeShowAutoStartPrompt()
+            },
+            icon = {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(
+                            Brush.radialGradient(
+                                colors = listOf(
+                                    Color(0xFF6366F1).copy(alpha = 0.35f),
+                                    Color(0xFF6366F1).copy(alpha = 0.1f)
+                                )
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Notifications,
+                        contentDescription = null,
+                        tint = Color(0xFF6366F1),
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            },
+            title = {
+                Text(
+                    stringResource(id = R.string.battery_optimization_title),
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            text = {
+                Text(
+                    stringResource(id = R.string.battery_optimization_desc),
+                    color = Color.White.copy(alpha = 0.75f),
+                    textAlign = TextAlign.Center,
+                    lineHeight = 20.sp
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showBatteryOptimizationDialog = false
+                    markAsked()
+                    BatteryOptimizationHelper.requestIgnoreBatteryOptimizations(context)
+                    maybeShowAutoStartPrompt()
+                }) {
+                    Text(
+                        stringResource(id = R.string.battery_optimization_allow),
+                        color = Color(0xFF6366F1),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showBatteryOptimizationDialog = false
+                    markAsked()
+                    maybeShowAutoStartPrompt()
+                }) {
+                    androidx.compose.material3.Text(
+                        stringResource(id = R.string.battery_optimization_not_now),
+                        color = Color.White.copy(alpha = 0.6f)
+                    )
+                }
+            },
+            containerColor = Color(0xFF2D3748),
+            shape = RoundedCornerShape(24.dp)
+        )
+    }
+
+    if (showAutoStartDialog) {
+        fun markAutoStartAsked() {
+            context.getSharedPreferences("taskmate_prefs", android.content.Context.MODE_PRIVATE)
+                .edit().putBoolean("asked_autostart_settings", true).apply()
+        }
+
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = {
+                showAutoStartDialog = false
+                markAutoStartAsked()
+            },
+            icon = {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(
+                            Brush.radialGradient(
+                                colors = listOf(
+                                    Color(0xFF6366F1).copy(alpha = 0.35f),
+                                    Color(0xFF6366F1).copy(alpha = 0.1f)
+                                )
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = null,
+                        tint = Color(0xFF6366F1),
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            },
+            title = {
+                Text(
+                    stringResource(id = R.string.autostart_title),
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            text = {
+                Text(
+                    stringResource(id = R.string.autostart_desc),
+                    color = Color.White.copy(alpha = 0.75f),
+                    textAlign = TextAlign.Center,
+                    lineHeight = 20.sp
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showAutoStartDialog = false
+                    markAutoStartAsked()
+                    BatteryOptimizationHelper.openAutoStartSettings(context)
+                }) {
+                    Text(
+                        stringResource(id = R.string.autostart_open_settings),
+                        color = Color(0xFF6366F1),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showAutoStartDialog = false
+                    markAutoStartAsked()
+                }) {
+                    Text(
+                        stringResource(id = R.string.battery_optimization_not_now),
+                        color = Color.White.copy(alpha = 0.6f)
+                    )
+                }
+            },
+            containerColor = Color(0xFF2D3748),
+            shape = RoundedCornerShape(24.dp)
         )
     }
 }

@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
+import android.util.Log
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -105,19 +106,45 @@ class AlarmRingActivity : ComponentActivity() {
     }
 
     private fun startRinging() {
-        val alarmUri = RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_ALARM)
-            ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-        mediaPlayer = MediaPlayer().apply {
-            setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_ALARM)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .build()
-            )
-            setDataSource(this@AlarmRingActivity, alarmUri)
-            isLooping = true
-            prepare()
-            start()
+        // setDataSource and the synchronous prepare() below can both throw (unreadable/missing
+        // ringtone content, no default sound configured — all seen on real OEM ROMs, confirmed
+        // here with a Vivo device failing native setDataSource on its own default alarm ringtone
+        // URI) — previously uncaught, which took down the whole activity the instant the alarm
+        // notification was tapped. Rather than giving up the moment ONE candidate URI fails, try
+        // each plausible system sound in turn and only fall back to vibration-only once all of
+        // them have failed.
+        for (uri in AlarmSound.candidateUris(this)) {
+            // Assigned to the field before setDataSource/prepare (which is exactly where this
+            // throws) rather than after, so a failed attempt is still reachable for release()
+            // here instead of leaking a constructed-but-never-released native player — confirmed
+            // via "MediaPlayer finalized without being released" in logcat before this fix.
+            val player = MediaPlayer()
+            mediaPlayer = player
+            try {
+                player.setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+                )
+                // A failure surfacing here (mid-loop, well after the setup this try/catch already
+                // covers) would otherwise just go silent with nothing in logcat to explain why —
+                // returning true marks it handled so the platform doesn't also invoke the
+                // (unset) completion listener on top of it.
+                player.setOnErrorListener { _, what, extra ->
+                    Log.w("AlarmRingActivity", "MediaPlayer error during playback: what=$what extra=$extra")
+                    true
+                }
+                player.setDataSource(this, uri)
+                player.isLooping = true
+                player.prepare()
+                player.start()
+                break
+            } catch (e: Exception) {
+                Log.w("AlarmRingActivity", "Couldn't play alarm sound from $uri, trying next candidate", e)
+                player.runCatching { release() }
+                mediaPlayer = null
+            }
         }
 
         val pattern = longArrayOf(0, 800, 800)

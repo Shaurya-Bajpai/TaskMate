@@ -27,6 +27,18 @@ enum class ReminderOffset(val minutes: Long, @StringRes val displayName: Int) {
     }
 }
 
+// Each task gets a 100-wide slot of request/notification ids (offset indices 0-5, snooze at 99).
+// Room's autoincrement id is a Long; naively doing `taskId.toInt() * 100` truncates first and can
+// silently overflow Int range (or wrap on the multiply) once ids climb high enough — on a device
+// with a long history of created/deleted tasks that can quietly collide two different tasks onto
+// the same request code, so one task's alarm/notification silently overwrites another's. Reducing
+// modulo the safe range *before* multiplying keeps every step inside Int bounds.
+private const val SLOTS_PER_TASK = 100
+private const val MAX_TASK_SLOT = Int.MAX_VALUE / SLOTS_PER_TASK
+
+private fun taskSlotBase(taskId: Long): Int =
+    (taskId % MAX_TASK_SLOT).toInt() * SLOTS_PER_TASK
+
 /**
  * A stable, unique int id per (taskId, offset) pair, used as both the WorkManager/AlarmManager
  * request code and the Android notification id — so a task with multiple reminder offsets gets
@@ -34,7 +46,7 @@ enum class ReminderOffset(val minutes: Long, @StringRes val displayName: Int) {
  * of them overwriting each other.
  */
 fun reminderRequestId(taskId: Long, offset: ReminderOffset): Int =
-    (taskId.toInt() * 100) + ReminderOffset.entries.indexOf(offset)
+    taskSlotBase(taskId) + ReminderOffset.entries.indexOf(offset)
 
 /** Reserved id slot (outside the 0-5 offset index range) for a one-off snoozed alarm. */
-fun snoozeRequestId(taskId: Long): Int = (taskId.toInt() * 100) + 99
+fun snoozeRequestId(taskId: Long): Int = taskSlotBase(taskId) + 99
