@@ -7,8 +7,12 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitTouchSlopOrCancellation
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.horizontalDrag
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,9 +27,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.*
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.PointerInputChange
+import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalDensity
@@ -46,6 +54,7 @@ import com.example.taskmate.home.second.formatDate
 import com.example.taskmate.home.second.getPriorityColor
 import com.example.taskmate.ui.theme.HighlightColor
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 
@@ -224,11 +233,12 @@ fun TodoItem(
                 .then(
                     if (!isSelectionMode) {
                         Modifier.pointerInput(todo.id, todo.isCompleted) {
-                            detectHorizontalDragGestures(
+                            detectHorizontalDragGesturesIgnoringVertical(
                                 onDragStart = {
                                     isDragging = true
                                     dragOffsetPx = swipeOffset.value
                                     completedAtGestureStart = todo.isCompleted
+                                    onSwipeOpenChanged(true)
                                 },
                                 onDragEnd = {
                                     val finalOffsetPx = dragOffsetPx
@@ -558,5 +568,40 @@ fun buildFormattedText(raw: String, stripMarkers: Boolean = false): AnnotatedStr
             cursor = match.range.last + 1
         }
         if (cursor < raw.length) append(raw.substring(cursor))
+    }
+}
+
+// detectHorizontalDragGestures's touch-slop check only looks at accumulated HORIZONTAL movement
+// against the slop threshold — it never compares against how much vertical movement happened at
+// the same time. So a finger drag that's actually an attempt to scroll the parent LazyColumn (but
+// isn't perfectly vertical, as real touches rarely are) can cross the horizontal slop first and
+// get permanently claimed here, blocking the list from ever scrolling. This variant uses the
+// direction-agnostic slop detector and only commits once the accumulated movement is genuinely
+// horizontal-dominant; otherwise it declines without consuming, so the detector resets and keeps
+// accumulating fresh — giving the LazyColumn's own vertical scroll gesture the chance to win.
+private suspend fun PointerInputScope.detectHorizontalDragGesturesIgnoringVertical(
+    onDragStart: (Offset) -> Unit = {},
+    onDragEnd: () -> Unit = {},
+    onDragCancel: () -> Unit = {},
+    onHorizontalDrag: (change: PointerInputChange, dragAmount: Float) -> Unit
+) {
+    awaitEachGesture {
+        val down = awaitFirstDown(requireUnconsumed = false)
+        var overSlopX = 0f
+        val drag = awaitTouchSlopOrCancellation(down.id) { change, over ->
+            if (abs(over.x) >= abs(over.y)) {
+                change.consume()
+                overSlopX = over.x
+            }
+        }
+        if (drag != null) {
+            onDragStart(drag.position)
+            onHorizontalDrag(drag, overSlopX)
+            val completedNormally = horizontalDrag(drag.id) { change ->
+                onHorizontalDrag(change, change.positionChange().x)
+                change.consume()
+            }
+            if (completedNormally) onDragEnd() else onDragCancel()
+        }
     }
 }
