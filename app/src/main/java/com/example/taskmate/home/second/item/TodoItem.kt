@@ -313,7 +313,7 @@ fun TodoItem(
                         HighlightColor, highlightGlow
                     ).copy(alpha = 0.3f + highlightAlpha * 0.25f)
                 )
-                .pointerInput(Unit) {
+                .pointerInput(todo.id, isSelectionMode) {
                     detectTapGestures(
                         onTap = {
                             if (isSelectionMode) {
@@ -499,7 +499,7 @@ fun TodoItem(
 
                     // Expandable description section
                     AnimatedVisibility(
-                        visible = expanded && todo.description.isNotBlank(),
+                        visible = expanded && todo.description.isNotBlank() && !isSelectionMode,
                         enter = expandVertically() + fadeIn(),
                         exit = shrinkVertically() + fadeOut()
                     ) {
