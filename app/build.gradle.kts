@@ -73,6 +73,9 @@ dependencies {
     androidTestImplementation("com.google.dagger:hilt-android-testing:2.48")
     kaptAndroidTest("com.google.dagger:hilt-android-compiler:2.48")
 
+    // Glance (home screen widget)
+    implementation("androidx.glance:glance-appwidget:1.1.0")
+
     // Animation
     implementation("androidx.compose.animation:animation:1.6.2")
     implementation("androidx.compose.animation:animation-graphics:1.6.2")
