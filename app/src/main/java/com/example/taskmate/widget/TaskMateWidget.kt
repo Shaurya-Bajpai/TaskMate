@@ -9,16 +9,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpSize
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.ImageProvider
 import androidx.glance.LocalContext
+import androidx.glance.LocalSize
 import androidx.glance.action.ActionParameters
 import androidx.glance.action.actionParametersOf
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.CheckBox
 import androidx.glance.appwidget.CheckboxDefaults
 import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.provideContent
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionStartActivity
@@ -77,6 +80,9 @@ private fun GlanceModifier.roundedCorners(radius: Dp): GlanceModifier =
 
 class TaskMateWidget : GlanceAppWidget() {
 
+    // 2x3 / 4x3+ home-screen cells, using Android's n*70dp-30dp cell-size convention.
+    override val sizeMode = SizeMode.Responsive(setOf(SIZE_MEDIUM, SIZE_LARGE))
+
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val repository = context.widgetEntryPoint().todoRepository()
         val tasks = repository.getAllTasks().first().take(MAX_VISIBLE_TASKS)
@@ -84,17 +90,68 @@ class TaskMateWidget : GlanceAppWidget() {
         val completedCount = repository.getCompletedTaskCount().first()
 
         provideContent {
-            WidgetContent(tasks, completedCount, totalCount)
+            val width = LocalSize.current.width
+            if (width <= SIZE_MEDIUM.width) {
+                MediumWidgetContent(tasks, completedCount, totalCount)
+            } else {
+                LargeWidgetContent(tasks, completedCount, totalCount)
+            }
         }
     }
 
     companion object {
         private const val MAX_VISIBLE_TASKS = 8
+        private val SIZE_MEDIUM = DpSize(110.dp, 180.dp)
+        private val SIZE_LARGE = DpSize(250.dp, 180.dp)
     }
 }
 
 @Composable
-private fun WidgetContent(tasks: List<Todo>, completedCount: Int, totalCount: Int) {
+private fun MediumWidgetContent(tasks: List<Todo>, completedCount: Int, totalCount: Int) {
+    val context = androidx.glance.LocalContext.current
+    Column(
+        modifier = GlanceModifier
+            .fillMaxSize()
+            .background(WidgetColors.Background)
+            .padding(8.dp)
+    ) {
+        Row(
+            modifier = GlanceModifier
+                .fillMaxWidth()
+                .clickable(actionStartActivity(openMainActivityIntent(context))),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "TaskMate",
+                modifier = GlanceModifier.defaultWeight(),
+                style = TextStyle(
+                    color = WidgetColors.TextPrimary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            )
+            Text(
+                text = "$completedCount/$totalCount",
+                style = TextStyle(color = WidgetColors.TextSecondary, fontSize = 11.sp)
+            )
+        }
+        Spacer(modifier = GlanceModifier.height(6.dp))
+        if (tasks.isEmpty()) {
+            Text(
+                text = "No tasks yet",
+                style = TextStyle(color = WidgetColors.TextSecondary, fontSize = 12.sp)
+            )
+        } else {
+            tasks.take(2).forEach { task ->
+                TaskRow(task, context)
+                Spacer(modifier = GlanceModifier.height(4.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun LargeWidgetContent(tasks: List<Todo>, completedCount: Int, totalCount: Int) {
     val context = LocalContext.current
     Column(
         modifier = GlanceModifier
