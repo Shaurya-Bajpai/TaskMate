@@ -1,6 +1,10 @@
 package com.example.taskmate
 
 import android.app.Application
+import android.content.Intent
+import androidx.core.content.pm.ShortcutInfoCompat
+import androidx.core.content.pm.ShortcutManagerCompat
+import androidx.core.graphics.drawable.IconCompat
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import dagger.hilt.android.HiltAndroidApp
@@ -19,6 +23,7 @@ class TodoApp: Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
+        pushAddTaskShortcut()
 
         // Compose's AndroidComposeView schedules a delayed Runnable to replay a hover-exit
         // MotionEvent, then asserts (via check()) that the event it captured is still the one
@@ -39,5 +44,21 @@ class TodoApp: Application(), Configuration.Provider {
                 defaultHandler?.uncaughtException(thread, throwable)
             }
         }
+    }
+
+    private fun pushAddTaskShortcut() {
+        val addTaskLabel = getString(R.string.add_task)
+        val shortcut = ShortcutInfoCompat.Builder(this, "add_task")
+            .setShortLabel(addTaskLabel)
+            .setLongLabel(addTaskLabel)
+            .setIcon(IconCompat.createWithResource(this, R.drawable.add_task))
+            .setIntent(
+                Intent(this, MainActivity::class.java).apply {
+                    action = Intent.ACTION_VIEW
+                    putExtra("openAddTask", true)
+                }
+            )
+            .build()
+        ShortcutManagerCompat.pushDynamicShortcut(this, shortcut)
     }
 }

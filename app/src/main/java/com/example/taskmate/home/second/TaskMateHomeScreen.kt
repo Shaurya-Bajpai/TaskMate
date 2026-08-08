@@ -55,7 +55,7 @@ import kotlinx.coroutines.delay
 import androidx.core.content.edit
 
 @Composable
-fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null) {
+fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null, openAddTask: Boolean = false) {
     val activity = LocalContext.current as? Activity
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
@@ -140,6 +140,15 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null) {
     val todoList by viewModel.getAllTask.collectAsState(initial = emptyList())
     val completedCount by viewModel.completedTaskCount.collectAsState(initial = 0)
     val totalCount by viewModel.totalTaskCount.collectAsState(initial = 0)
+
+    var openAddTaskHandled by remember { mutableStateOf(false) }
+    LaunchedEffect(openAddTask) {
+        if (!openAddTaskHandled && openAddTask) {
+            editingTodo = null
+            showDialog = true
+            openAddTaskHandled = true
+        }
+    }
 
     // Filter logic
     val filteredTodos = remember(todoList, searchQuery, selectedFilter) {

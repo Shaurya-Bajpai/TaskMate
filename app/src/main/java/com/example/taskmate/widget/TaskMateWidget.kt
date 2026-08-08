@@ -2,6 +2,7 @@ package com.example.taskmate.widget
 
 import android.content.Context
 import android.content.Intent
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -17,6 +18,8 @@ import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.provideContent
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionStartActivity
+import androidx.glance.appwidget.appWidgetBackground
+import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.lazy.LazyColumn
 import androidx.glance.appwidget.lazy.items
 import androidx.glance.background
@@ -84,6 +87,8 @@ private fun WidgetContent(tasks: List<Todo>, completedCount: Int, totalCount: In
             .fillMaxSize()
             .background(WidgetColors.Background)
             .padding(12.dp)
+            .cornerRadius(16.dp)
+            .appWidgetBackground()
     ) {
         Row(
             modifier = GlanceModifier.fillMaxWidth(),

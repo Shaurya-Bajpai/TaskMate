@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.runtime.*
+import androidx.glance.appwidget.updateAll
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.taskmate.R
@@ -12,6 +13,7 @@ import com.example.taskmate.data.Priority
 import com.example.taskmate.data.ReminderType
 import com.example.taskmate.data.Todo
 import com.example.taskmate.database.TodoRepository
+import com.example.taskmate.widget.TaskMateWidget
 import com.example.taskmate.worker.AlarmScheduler
 import com.example.taskmate.worker.ReminderWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -59,6 +61,7 @@ class TodoViewModel @Inject constructor(
             try {
                 val newId: Long = repository.addTask(todo)
                 applyReminder(todo.copy(id = newId))
+                TaskMateWidget().updateAll(context)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     errorMessage = null
@@ -81,6 +84,7 @@ class TodoViewModel @Inject constructor(
                 } else {
                     applyReminder(todo)
                 }
+                TaskMateWidget().updateAll(context)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     errorMessage = null
@@ -99,6 +103,7 @@ class TodoViewModel @Inject constructor(
             try {
                 repository.deleteTask(todo)
                 cancelAllReminders(todo.id)
+                TaskMateWidget().updateAll(context)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     errorMessage = null
