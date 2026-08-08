@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="280dp"
+    android:height="200dp"
+    android:viewportWidth="280"
+    android:viewportHeight="200">
+
+    <!-- background -->
+    <path
+        android:fillColor="#0F172A"
+        android:pathData="M0,0 L280,0 L280,200 L0,200 Z" />
+
+    <!-- title bar ("TaskMate") -->
+    <path
+        android:fillColor="#F8FAFC"
+        android:pathData="M14,18 L114,18 L114,32 L14,32 Z" />
+
+    <!-- subtitle bar ("x of y done") -->
+    <path
+        android:fillColor="#94A3B8"
+        android:pathData="M124,21 L174,21 L174,29 L124,29 Z" />
+
+    <!-- add button -->
+    <path
+        android:fillColor="#8B5CF6"
+        android:pathData="M236,14 L266,14 L266,44 L236,44 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M242,27 L260,27 L260,31 L242,31 Z M249,20 L253,20 L253,38 L249,38 Z" />
+
+    <!-- row 1: completed -->
+    <path
+        android:fillColor="#8B5CF6"
+        android:pathData="M14,58 L36,58 L36,80 L14,80 Z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M19,69 L23,74 L31,63" />
+    <path
+        android:fillColor="#F59E0B"
+        android:pathData="M46,65 L54,65 L54,73 L46,73 Z" />
+    <path
+        android:fillColor="#64748B"
+        android:pathData="M62,66 L202,66 L202,74 L62,74 Z" />
+
+    <!-- row 2: active, high priority -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#94A3B8"
+        android:strokeWidth="2"
+        android:pathData="M14,98 L36,98 L36,120 L14,120 Z" />
+    <path
+        android:fillColor="#EF4444"
+        android:pathData="M46,105 L54,105 L54,113 L46,113 Z" />
+    <path
+        android:fillColor="#F8FAFC"
+        android:pathData="M62,106 L232,106 L232,114 L62,114 Z" />
+
+    <!-- row 3: active, low priority -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#94A3B8"
+        android:strokeWidth="2"
+        android:pathData="M14,138 L36,138 L36,160 L14,160 Z" />
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M46,145 L54,145 L54,153 L46,153 Z" />
+    <path
+        android:fillColor="#F8FAFC"
+        android:pathData="M62,146 L212,146 L212,154 L62,154 Z" />
+
+</vector>
