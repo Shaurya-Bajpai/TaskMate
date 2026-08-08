@@ -34,9 +34,11 @@ class ToggleTaskActionCallback : ActionCallback {
         parameters: ActionParameters
     ) {
         val taskId = parameters[taskIdKey] ?: return
-        val repository = context.widgetEntryPoint().todoRepository()
-        toggleTaskCompletion(repository, context, taskId)
-
-        TaskMateWidget().updateAll(context)
+        try {
+            val repository = context.widgetEntryPoint().todoRepository()
+            toggleTaskCompletion(repository, context, taskId)
+        } finally {
+            TaskMateWidget().updateAll(context)
+        }
     }
 }

@@ -4,10 +4,13 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.TabRowDefaults.Divider
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.glance.GlanceId
@@ -93,14 +96,20 @@ class TaskMateWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val repository = context.widgetEntryPoint().todoRepository()
-        val tasks = repository.getAllTasks().first().take(MAX_VISIBLE_TASKS)
-        val totalCount = repository.getTotalTaskCount().first()
-        val completedCount = repository.getCompletedTaskCount().first()
 
         provideContent {
+            // Glance holds a session lock for ~45s after each update(), silently coalescing any
+            // updateAll() calls made while it's held (so a toggle right after another one can
+            // never trigger a fresh provideGlance). Collecting the repository Flows here instead
+            // of doing a one-shot fetch means the already-running session recomposes on its own
+            // whenever Room emits a change, regardless of the session-lock/update() timing.
+            val tasks by repository.getAllTasks().collectAsState(initial = emptyList())
+            val totalCount by repository.getTotalTaskCount().collectAsState(initial = 0)
+            val completedCount by repository.getCompletedTaskCount().collectAsState(initial = 0)
+
             when (pickWidgetSizeTier(LocalSize.current.width)) {
-                WidgetSizeTier.MEDIUM -> MediumWidgetContent(tasks, completedCount, totalCount)
-                WidgetSizeTier.LARGE -> LargeWidgetContent(tasks, completedCount, totalCount)
+                WidgetSizeTier.MEDIUM -> MediumWidgetContent(tasks.take(MAX_VISIBLE_TASKS), completedCount, totalCount)
+                WidgetSizeTier.LARGE -> LargeWidgetContent(tasks.take(MAX_VISIBLE_TASKS), completedCount, totalCount)
             }
         }
     }
@@ -147,9 +156,9 @@ private fun MediumWidgetContent(tasks: List<Todo>, completedCount: Int, totalCou
             )
         } else {
             LazyColumn(modifier = GlanceModifier.fillMaxSize()) {
-                items(tasks.take(2), itemId = { it.id }) { task ->
+                items(tasks.take(2), itemId = { it.widgetItemId() }) { task ->
                     TaskRow(task, context)
-                    Spacer(modifier = GlanceModifier.height(4.dp))
+                    if(tasks.indexOf(task) < tasks.size - 1) Divider()
                 }
             }
         }
@@ -227,9 +236,9 @@ private fun LargeWidgetContent(tasks: List<Todo>, completedCount: Int, totalCoun
             }
         } else {
             LazyColumn(modifier = GlanceModifier.fillMaxSize()) {
-                items(tasks, itemId = { it.id }) { task ->
+                items(tasks, itemId = { it.widgetItemId() }) { task ->
                     TaskRow(task, context)
-                    Spacer(modifier = GlanceModifier.height(6.dp))
+                    if(tasks.indexOf(task) < tasks.size - 1) Divider()
                 }
             }
         }
@@ -242,7 +251,7 @@ private fun TaskRow(task: Todo, context: Context) {
         modifier = GlanceModifier
             .fillMaxWidth()
             .roundedCorners(10.dp)
-            .background(WidgetColors.Card)
+//            .background(WidgetColors.Card)
             .padding(horizontal = 10.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -257,7 +266,7 @@ private fun TaskRow(task: Todo, context: Context) {
             ),
             modifier = GlanceModifier
                 .roundedCorners(8.dp)
-                .background(WidgetColors.Card)
+//                .background(WidgetColors.Card)
                 .padding(12.dp)
         )
         Spacer(modifier = GlanceModifier.width(4.dp))
@@ -265,7 +274,7 @@ private fun TaskRow(task: Todo, context: Context) {
             modifier = GlanceModifier
                 .defaultWeight()
                 .roundedCorners(8.dp)
-                .background(WidgetColors.Card)
+//                .background(WidgetColors.Card)
                 .clickable(
                     actionStartActivity(
                         openMainActivityIntent(context).apply {
@@ -300,3 +309,12 @@ internal fun colorProviderFor(priority: Priority) = when (priority) {
     Priority.MEDIUM -> WidgetColors.MediumPriority
     Priority.LOW -> WidgetColors.LowPriority
 }
+
+// Glance's LazyColumn keys rows by itemId and can skip re-rendering a row whose itemId hasn't
+// changed, even if its content did (AndroidX issue #240300611). Marking a task done keeps the
+// same task.id, so the checkbox/strikethrough never repainted after a widget-side toggle even
+// though updateAll() ran and the DB write succeeded. Folding the mutable fields into the itemId
+// (id in the high bits so ordering/identity stay stable, a content hash in the low bits) forces
+// Glance to treat a changed task as a new row and redraw it.
+internal fun Todo.widgetItemId(): Long =
+    (id shl 32) or ((listOf(isCompleted, title, priority).hashCode().toLong()) and 0xFFFFFFFFL)
