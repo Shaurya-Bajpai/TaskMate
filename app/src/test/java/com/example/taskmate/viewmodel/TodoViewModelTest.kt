@@ -6,6 +6,7 @@ import com.example.taskmate.data.Priority
 import com.example.taskmate.data.ReminderType
 import com.example.taskmate.data.Todo
 import com.example.taskmate.database.TodoRepository
+import com.example.taskmate.widget.WidgetRefresher
 import com.example.taskmate.worker.AlarmScheduler
 import com.example.taskmate.worker.ReminderWorker
 import io.mockk.*
@@ -26,13 +27,15 @@ class TodoViewModelTest {
 
     private lateinit var repository: TodoRepository
     private lateinit var mockContext: Context
+    private lateinit var widgetRefresher: WidgetRefresher
     private lateinit var viewModel: TodoViewModel
 
     @Before
     fun setUp() {
         repository = mockk(relaxed = true)
         mockContext = mockk(relaxed = true)
-        
+        widgetRefresher = mockk(relaxed = true)
+
         // We mock the ReminderWorker static methods for isolation
         mockkObject(ReminderWorker)
         every { ReminderWorker.scheduleReminder(any(), any()) } just Runs
@@ -42,7 +45,7 @@ class TodoViewModelTest {
         every { AlarmScheduler.scheduleAlarm(any(), any()) } just Runs
         every { AlarmScheduler.cancelAlarm(any(), any()) } just Runs
 
-        viewModel = TodoViewModel(repository, mockContext)
+        viewModel = TodoViewModel(repository, mockContext, widgetRefresher)
     }
 
     @After
@@ -68,7 +71,8 @@ class TodoViewModelTest {
         // Assert
         coVerify { repository.addTask(todo) }
         verify { ReminderWorker.scheduleReminder(mockContext, todo.copy(id = 5L)) }
-        
+        coVerify { widgetRefresher.refresh(mockContext) }
+
         // Assert UI State successfully resets loading and clears errors
         val finalState = viewModel.uiState.value
         assertEquals(false, finalState.isLoading)
@@ -87,7 +91,8 @@ class TodoViewModelTest {
 
         // Assert setup logic does not schedule anything due to exception
         verify(exactly = 0) { ReminderWorker.scheduleReminder(any(), any()) }
-        
+        coVerify(exactly = 0) { widgetRefresher.refresh(any()) }
+
         val finalState = viewModel.uiState.value
         assertEquals(false, finalState.isLoading)
         assertEquals("Failed to add task: $errorMessage", finalState.errorMessage)
@@ -105,6 +110,21 @@ class TodoViewModelTest {
         coVerify { repository.updateTask(todo) }
         verify { ReminderWorker.scheduleReminder(mockContext, todo) }
         verify(exactly = 0) { ReminderWorker.cancelReminder(any(), any()) }
+        coVerify { widgetRefresher.refresh(mockContext) }
+    }
+
+    @Test
+    fun updateTask_error_doesNotRefreshWidget() = runTest {
+        // Arrange
+        val todo = Todo(id = 1L, isCompleted = false)
+        coEvery { repository.updateTask(any()) } throws Exception("DB error")
+
+        // Act
+        viewModel.updateTask(todo)
+
+        // Assert: widget must not be refreshed when the underlying update failed
+        coVerify(exactly = 0) { widgetRefresher.refresh(any()) }
+        assertEquals("Failed to update task: DB error", viewModel.uiState.value.errorMessage)
     }
 
     @Test
@@ -134,6 +154,21 @@ class TodoViewModelTest {
         coVerify { repository.deleteTask(todo) }
         verify { ReminderWorker.cancelReminder(mockContext, 3L) }
         verify { AlarmScheduler.cancelAlarm(mockContext, 3L) }
+        coVerify { widgetRefresher.refresh(mockContext) }
+    }
+
+    @Test
+    fun deleteTask_error_doesNotRefreshWidget() = runTest {
+        // Arrange
+        val todo = Todo(id = 3L)
+        coEvery { repository.deleteTask(any()) } throws Exception("DB error")
+
+        // Act
+        viewModel.deleteTask(todo)
+
+        // Assert: widget must not be refreshed when the underlying delete failed
+        coVerify(exactly = 0) { widgetRefresher.refresh(any()) }
+        assertEquals("Failed to delete task: DB error", viewModel.uiState.value.errorMessage)
     }
 
     @Test

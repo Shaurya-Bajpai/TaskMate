@@ -78,10 +78,18 @@ private fun openMainActivityIntent(context: Context): Intent =
 private fun GlanceModifier.roundedCorners(radius: Dp): GlanceModifier =
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) this.cornerRadius(radius) else this
 
-class TaskMateWidget : GlanceAppWidget() {
+internal val WIDGET_SIZE_MEDIUM = DpSize(110.dp, 180.dp)
+internal val WIDGET_SIZE_LARGE = DpSize(250.dp, 180.dp)
 
+internal enum class WidgetSizeTier { MEDIUM, LARGE }
+
+// Pulled out as a pure function so the size-tier boundary can be unit tested without Glance.
+internal fun pickWidgetSizeTier(width: Dp): WidgetSizeTier =
+    if (width <= WIDGET_SIZE_MEDIUM.width) WidgetSizeTier.MEDIUM else WidgetSizeTier.LARGE
+
+class TaskMateWidget : GlanceAppWidget() {
     // 2x3 / 4x3+ home-screen cells, using Android's n*70dp-30dp cell-size convention.
-    override val sizeMode = SizeMode.Responsive(setOf(SIZE_MEDIUM, SIZE_LARGE))
+    override val sizeMode = SizeMode.Responsive(setOf(WIDGET_SIZE_MEDIUM, WIDGET_SIZE_LARGE))
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val repository = context.widgetEntryPoint().todoRepository()
@@ -90,19 +98,15 @@ class TaskMateWidget : GlanceAppWidget() {
         val completedCount = repository.getCompletedTaskCount().first()
 
         provideContent {
-            val width = LocalSize.current.width
-            if (width <= SIZE_MEDIUM.width) {
-                MediumWidgetContent(tasks, completedCount, totalCount)
-            } else {
-                LargeWidgetContent(tasks, completedCount, totalCount)
+            when (pickWidgetSizeTier(LocalSize.current.width)) {
+                WidgetSizeTier.MEDIUM -> MediumWidgetContent(tasks, completedCount, totalCount)
+                WidgetSizeTier.LARGE -> LargeWidgetContent(tasks, completedCount, totalCount)
             }
         }
     }
 
     companion object {
         private const val MAX_VISIBLE_TASKS = 8
-        private val SIZE_MEDIUM = DpSize(110.dp, 180.dp)
-        private val SIZE_LARGE = DpSize(250.dp, 180.dp)
     }
 }
 
@@ -142,9 +146,11 @@ private fun MediumWidgetContent(tasks: List<Todo>, completedCount: Int, totalCou
                 style = TextStyle(color = WidgetColors.TextSecondary, fontSize = 12.sp)
             )
         } else {
-            tasks.take(2).forEach { task ->
-                TaskRow(task, context)
-                Spacer(modifier = GlanceModifier.height(4.dp))
+            LazyColumn(modifier = GlanceModifier.fillMaxSize()) {
+                items(tasks.take(2), itemId = { it.id }) { task ->
+                    TaskRow(task, context)
+                    Spacer(modifier = GlanceModifier.height(4.dp))
+                }
             }
         }
     }
@@ -252,7 +258,7 @@ private fun TaskRow(task: Todo, context: Context) {
             modifier = GlanceModifier
                 .roundedCorners(8.dp)
                 .background(WidgetColors.Card)
-                .padding(4.dp)
+                .padding(12.dp)
         )
         Spacer(modifier = GlanceModifier.width(4.dp))
         Row(
@@ -289,7 +295,7 @@ private fun TaskRow(task: Todo, context: Context) {
     }
 }
 
-private fun colorProviderFor(priority: Priority) = when (priority) {
+internal fun colorProviderFor(priority: Priority) = when (priority) {
     Priority.HIGH -> WidgetColors.HighPriority
     Priority.MEDIUM -> WidgetColors.MediumPriority
     Priority.LOW -> WidgetColors.LowPriority
