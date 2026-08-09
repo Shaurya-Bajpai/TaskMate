@@ -7,7 +7,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.*
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.ScrollableDefaults
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,12 +17,10 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.AlertDialog
 import androidx.compose.material.Text
 import androidx.compose.material.TextButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -56,6 +56,7 @@ import com.example.taskmate.viewmodel.TodoViewModel
 import kotlinx.coroutines.delay
 import androidx.core.content.edit
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null, openAddTask: Boolean = false) {
     val activity = LocalContext.current as? Activity
@@ -198,12 +199,14 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null, op
     // dropped into an editor for a task they may not want to change.
     var highlightedTaskId by remember { mutableStateOf<Long?>(null) }
     val listState = rememberLazyListState()
+    val filterListState = rememberLazyListState()
 
     // Automatically scroll to top when a new task is added
     var previousTaskCount by remember { mutableIntStateOf(todoList.size) }
     LaunchedEffect(todoList.size) {
         if (todoList.size > previousTaskCount) {
             listState.animateScrollToItem(0)
+            filterListState.animateScrollToItem(0)
         }
         previousTaskCount = todoList.size
     }
@@ -294,7 +297,8 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null, op
                 ) {
                     FilterChipRow(
                         selectedFilter = selectedFilter,
-                        onFilterSelected = { selectedFilter = it }
+                        onFilterSelected = { selectedFilter = it },
+                        state = filterListState
                     )
                 }
 
@@ -318,6 +322,7 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null, op
                                     .fillMaxSize()
                                     .padding(horizontal = 16.dp),
                                 verticalArrangement = Arrangement.spacedBy(12.dp),
+                                flingBehavior = ScrollableDefaults.flingBehavior(),
                                 contentPadding = PaddingValues(bottom = 100.dp, top = 16.dp)
                             ) {
                                 itemsIndexed(
@@ -340,6 +345,7 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null, op
                                         )
                                     ) {
                                         TodoItem(
+                                            modifier = Modifier.animateItemPlacement(),
                                             todo = todo,
                                             isSelected = selectedTodos.contains(todo.id),
                                             isSelectionMode = isSelectionMode,

@@ -62,6 +62,7 @@ private val BOLD_REGEX = Regex("\\*\\*(.+?)\\*\\*")
 
 @Composable
 fun TodoItem(
+    modifier: Modifier,
     todo: Todo,
     isSelected: Boolean,
     isSelectionMode: Boolean,
@@ -155,7 +156,7 @@ fun TodoItem(
     )
     val highlightAlpha = highlightGlow * highlightPulse
 
-    Box(modifier = Modifier.fillMaxWidth()) {
+    Box(modifier = modifier.fillMaxWidth()) {
         // Action panel revealed behind the card as it slides on swipe: dragging right previews
         // the complete/undo action (unchanged), dragging left reveals a delete bin instead.
         if (!isSelectionMode) {
