@@ -2,6 +2,7 @@
     <string name="app_name">TaskMate</string>
     <string name="update_task">Update Task</string>
     <string name="add_task">Add Task</string>
+    <string name="widget_description">See and check off your active tasks from the home screen</string>
     <string name="default_task_reminder">Task Reminder</string>
     <string name="task_reminder_channel_name">Task Reminders</string>
     <string name="task_reminder_channel_desc">Notifications for due tasks</string>

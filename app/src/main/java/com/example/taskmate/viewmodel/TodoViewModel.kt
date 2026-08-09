@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.runtime.*
+import androidx.glance.appwidget.updateAll
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.taskmate.R
@@ -12,6 +13,8 @@ import com.example.taskmate.data.Priority
 import com.example.taskmate.data.ReminderType
 import com.example.taskmate.data.Todo
 import com.example.taskmate.database.TodoRepository
+import com.example.taskmate.widget.TaskMateWidget
+import com.example.taskmate.widget.WidgetRefresher
 import com.example.taskmate.worker.AlarmScheduler
 import com.example.taskmate.worker.ReminderWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -28,7 +31,8 @@ import javax.inject.Inject
 @HiltViewModel
 class TodoViewModel @Inject constructor(
     private val repository: TodoRepository,
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val widgetRefresher: WidgetRefresher
 ) : ViewModel() {
     // UI State
     private val _uiState = MutableStateFlow(TodoUiState())
@@ -59,6 +63,7 @@ class TodoViewModel @Inject constructor(
             try {
                 val newId: Long = repository.addTask(todo)
                 applyReminder(todo.copy(id = newId))
+                widgetRefresher.refresh(context)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     errorMessage = null
@@ -81,6 +86,7 @@ class TodoViewModel @Inject constructor(
                 } else {
                     applyReminder(todo)
                 }
+                widgetRefresher.refresh(context)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     errorMessage = null
@@ -99,6 +105,7 @@ class TodoViewModel @Inject constructor(
             try {
                 repository.deleteTask(todo)
                 cancelAllReminders(todo.id)
+                widgetRefresher.refresh(context)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     errorMessage = null

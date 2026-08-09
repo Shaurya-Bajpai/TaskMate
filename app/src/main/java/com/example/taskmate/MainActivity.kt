@@ -18,9 +18,10 @@ class MainActivity : ComponentActivity() {
         window.statusBarColor = TaskMateColors.BackgroundDark.toArgb()
         WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = false
         val initialTaskId = intent.getLongExtra("taskId", -1L)
+        val openAddTask = intent.hasExtra("openAddTask")
         setContent {
             val viewModel: TodoViewModel = hiltViewModel()
-            TaskMateHomeScreen(viewModel, initialTaskId)
+            TaskMateHomeScreen(viewModel, initialTaskId, openAddTask)
         }
     }
 }
