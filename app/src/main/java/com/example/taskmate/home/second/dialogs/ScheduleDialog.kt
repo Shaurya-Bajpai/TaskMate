@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import com.example.taskmate.R
+import com.example.taskmate.alarm.BatteryOptimizationHelper
 import com.example.taskmate.color.TaskMateColors
 import com.example.taskmate.data.ReminderOffset
 import com.example.taskmate.data.ReminderType
@@ -50,6 +51,13 @@ fun ScheduleDialog(
     var selectedDate by remember { mutableStateOf(initialDate) }
     var selectedReminderType by remember { mutableStateOf(initialReminderType) }
     var selectedReminderOffsets by remember { mutableStateOf(initialReminderOffsets) }
+
+    // Re-shown every time "Alarm" is picked while the app still isn't exempt from battery
+    // optimization — unlike the one-time home-screen nudge, this keeps nagging on every tap
+    // until the user either grants the exemption or picks a different reminder type, since an
+    // alarm silently not firing is worse than a repeated prompt.
+    var showBatteryReliabilityDialog by remember { mutableStateOf(false) }
+    val hasKnownAutoStartScreen = remember { BatteryOptimizationHelper.hasKnownAutoStartScreen(context) }
 
     // 0 = None, 1 = DatePicker, 2 = TimePicker
     var activePickerDialog by remember { mutableIntStateOf(0) }
@@ -312,7 +320,22 @@ fun ScheduleDialog(
                                 ReminderTypeChip(
                                     type = type,
                                     isSelected = selectedReminderType == type,
-                                    onClick = { selectedReminderType = type },
+                                    onClick = {
+                                        // Alarm can't actually stay selected while the app isn't
+                                        // exempt from battery optimization — the OS can silently
+                                        // kill it before the alarm fires, so the chip would show
+                                        // "Alarm" as active while nothing reliable is scheduled.
+                                        // Block the selection itself (rather than selecting it and
+                                        // nagging afterwards) so dismissing the dialog can't leave
+                                        // the UI on a state that doesn't actually work.
+                                        if (type == ReminderType.ALARM &&
+                                            !BatteryOptimizationHelper.isIgnoringBatteryOptimizations(context)
+                                        ) {
+                                            showBatteryReliabilityDialog = true
+                                        } else {
+                                            selectedReminderType = type
+                                        }
+                                    },
                                     modifier = Modifier.weight(1f)
                                 )
                             }
@@ -394,5 +417,14 @@ fun ScheduleDialog(
                 }
             }
         }
+    }
+
+    if (showBatteryReliabilityDialog) {
+        AutoStartReliabilityDialog(
+            hasKnownAutoStartScreen = hasKnownAutoStartScreen,
+            onDismissRequest = { showBatteryReliabilityDialog = false },
+            onNotNow = { showBatteryReliabilityDialog = false },
+            onOpenSettings = { showBatteryReliabilityDialog = false }
+        )
     }
 }
