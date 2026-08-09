@@ -393,14 +393,25 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null, op
                     }
 
                     // Enhanced FAB with conditional appearance. Hidden while the keyboard is up too
-                    // (isKeyboardVisible), not just during selection.
-                    if (isSelectionMode) {
+                    // (isKeyboardVisible), not just during selection. Use AnimatedVisibility to
+                    // avoid abrupt layout jumps that can cause flickering during the keyboard animation.
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = isSelectionMode,
+                        enter = fadeIn(),
+                        exit = fadeOut()
+                    ) {
                         DeleteFAB(
                             onClick = {
                                 showDeleteDialog = true
                             }
                         )
-                    } else if (!isKeyboardVisible) {
+                    }
+
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = !isSelectionMode && !isKeyboardVisible,
+                        enter = fadeIn(),
+                        exit = fadeOut()
+                    ) {
                         FloatingActionButton(
                             onClick = {
                                 editingTodo = null
