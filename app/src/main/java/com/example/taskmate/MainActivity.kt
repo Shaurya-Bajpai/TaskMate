@@ -16,7 +16,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.statusBarColor = TaskMateColors.BackgroundDark.toArgb()
-        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = false
+        window.navigationBarColor = TaskMateColors.BackgroundDark.toArgb()
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = false
+            isAppearanceLightNavigationBars = false
+        }
         val initialTaskId = intent.getLongExtra("taskId", -1L)
         val openAddTask = intent.hasExtra("openAddTask")
         setContent {
