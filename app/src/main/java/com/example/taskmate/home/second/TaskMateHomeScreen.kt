@@ -3,6 +3,8 @@ package com.example.taskmate.home
 import android.app.Activity
 import android.content.Context
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
@@ -78,13 +80,37 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null, op
     val aggressiveOemManufacturers = remember {
         setOf("xiaomi", "vivo", "oppo", "huawei", "honor", "oneplus", "samsung", "letv", "leeco", "asus")
     }
+    // Whether a dedicated OEM autostart screen actually exists on this build. Checked up front
+    // (rather than discovered only after the user taps "Open settings") so the dialog can be
+    // honest about where that button leads — some manufacturers (confirmed: Vivo on Android 14)
+    // have removed the screen this app used to be able to deep-link to, leaving only the generic
+    // app info screen, which needs different wording to be actionable.
+    val hasKnownAutoStartScreen = remember {
+        BatteryOptimizationHelper.hasKnownAutoStartScreen(context)
+    }
 
+    // Only relevant once the user has actually been through the system "ignore battery
+    // optimizations" dialog and still isn't exempt (i.e. they tapped Deny there) — granting it
+    // there makes this second, OEM-specific step unnecessary regardless of manufacturer.
     fun maybeShowAutoStartPrompt() {
         val prefs = context.getSharedPreferences("taskmate_prefs", android.content.Context.MODE_PRIVATE)
         val alreadyAsked = prefs.getBoolean("asked_autostart_settings", false)
-        if (!alreadyAsked && android.os.Build.MANUFACTURER.lowercase() in aggressiveOemManufacturers) {
+        val stillNeedsExemption = !BatteryOptimizationHelper.isIgnoringBatteryOptimizations(context)
+        if (!alreadyAsked && stillNeedsExemption && android.os.Build.MANUFACTURER.lowercase() in aggressiveOemManufacturers) {
             showAutoStartDialog = true
         }
+    }
+
+    // The system's own "ignore battery optimizations" screen is launched through this rather than
+    // a plain context.startActivity() so the autostart follow-up dialog only arms once that system
+    // screen has actually been dismissed and control has returned to the app — starting it directly
+    // returned instantly, before the system UI even finished drawing, letting the follow-up dialog
+    // render on top of it. maybeShowAutoStartPrompt() itself re-checks isIgnoringBatteryOptimizations(),
+    // so the follow-up only appears when the user actually tapped Deny there, not Allow.
+    val batteryOptimizationLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) {
+        maybeShowAutoStartPrompt()
     }
 
     LaunchedEffect(Unit) {
@@ -440,7 +466,6 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null, op
             onDismissRequest = {
                 showBatteryOptimizationDialog = false
                 markAsked()
-                maybeShowAutoStartPrompt()
             },
             icon = {
                 Box(
@@ -486,8 +511,9 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null, op
                 TextButton(onClick = {
                     showBatteryOptimizationDialog = false
                     markAsked()
-                    BatteryOptimizationHelper.requestIgnoreBatteryOptimizations(context)
-                    maybeShowAutoStartPrompt()
+                    batteryOptimizationLauncher.launch(
+                        BatteryOptimizationHelper.ignoreBatteryOptimizationsIntent(context)
+                    )
                 }) {
                     Text(
                         stringResource(id = R.string.battery_optimization_allow),
@@ -500,9 +526,8 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null, op
                 TextButton(onClick = {
                     showBatteryOptimizationDialog = false
                     markAsked()
-                    maybeShowAutoStartPrompt()
                 }) {
-                    androidx.compose.material3.Text(
+                    Text(
                         stringResource(id = R.string.battery_optimization_not_now),
                         color = Color.White.copy(alpha = 0.6f)
                     )
@@ -519,77 +544,20 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null, op
                 .edit().putBoolean("asked_autostart_settings", true).apply()
         }
 
-        androidx.compose.material3.AlertDialog(
+        AutoStartReliabilityDialog(
+            hasKnownAutoStartScreen = hasKnownAutoStartScreen,
             onDismissRequest = {
                 showAutoStartDialog = false
                 markAutoStartAsked()
             },
-            icon = {
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(CircleShape)
-                        .background(
-                            Brush.radialGradient(
-                                colors = listOf(
-                                    Color(0xFF6366F1).copy(alpha = 0.35f),
-                                    Color(0xFF6366F1).copy(alpha = 0.1f)
-                                )
-                            )
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = null,
-                        tint = Color(0xFF6366F1),
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
+            onNotNow = {
+                showAutoStartDialog = false
+                markAutoStartAsked()
             },
-            title = {
-                Text(
-                    stringResource(id = R.string.autostart_title),
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            },
-            text = {
-                Text(
-                    stringResource(id = R.string.autostart_desc),
-                    color = Color.White.copy(alpha = 0.75f),
-                    textAlign = TextAlign.Center,
-                    lineHeight = 20.sp
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    showAutoStartDialog = false
-                    markAutoStartAsked()
-                    BatteryOptimizationHelper.openAutoStartSettings(context)
-                }) {
-                    Text(
-                        stringResource(id = R.string.autostart_open_settings),
-                        color = Color(0xFF6366F1),
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    showAutoStartDialog = false
-                    markAutoStartAsked()
-                }) {
-                    Text(
-                        stringResource(id = R.string.battery_optimization_not_now),
-                        color = Color.White.copy(alpha = 0.6f)
-                    )
-                }
-            },
-            containerColor = Color(0xFF2D3748),
-            shape = RoundedCornerShape(24.dp)
+            onOpenSettings = {
+                showAutoStartDialog = false
+                markAutoStartAsked()
+            }
         )
     }
 }

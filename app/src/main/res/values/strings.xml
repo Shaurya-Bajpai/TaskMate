@@ -33,6 +33,10 @@
     <string name="autostart_title">One more step for reliable alarms</string>
     <string name="autostart_desc">Your phone\'s manufacturer has its own app-management settings on top of Android\'s. Find TaskMate there and enable \"Autostart\" or \"Allow background activity\" so alarms don\'t get silently blocked.</string>
     <string name="autostart_open_settings">Open settings</string>
+    <string name="autostart_desc_fallback_intro">Your phone doesn\'t expose a dedicated autostart screen, so this opens TaskMate\'s app info instead:</string>
+    <string name="autostart_desc_fallback_step1">1. Tap \"App battery usage\"</string>
+    <string name="autostart_desc_fallback_step2">2. Choose \"Unrestricted\"</string>
+    <string name="autostart_fallback_toast">Tap \"App battery usage\" → choose \"Unrestricted\" so alarms don\'t get silently blocked.</string>
     <string name="set_time">Set Time</string>
     <string name="delete_selected">Delete Selected</string>
     <string name="edit_task">Edit Task</string>
