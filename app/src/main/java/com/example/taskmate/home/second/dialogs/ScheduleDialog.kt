@@ -1,5 +1,10 @@
 package com.example.taskmate.home.second.dialogs
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -25,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.content.ContextCompat
 import com.example.taskmate.R
 import com.example.taskmate.alarm.BatteryOptimizationHelper
 import com.example.taskmate.color.TaskMateColors
@@ -58,6 +64,27 @@ fun ScheduleDialog(
     // alarm silently not firing is worse than a repeated prompt.
     var showBatteryReliabilityDialog by remember { mutableStateOf(false) }
     val hasKnownAutoStartScreen = remember { BatteryOptimizationHelper.hasKnownAutoStartScreen(context) }
+
+    // Below API 33 posting notifications never required runtime permission, so treat those
+    // devices as always-granted rather than gating "Notification" behind a permission that
+    // doesn't exist there.
+    fun hasNotificationPermission(): Boolean {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+                PackageManager.PERMISSION_GRANTED
+    }
+
+    // Requested at the moment "Notification" is tapped (rather than unconditionally whenever
+    // this dialog opens, regardless of what the user picks) so the system dialog only appears
+    // when it's actually relevant to the choice being made. Selecting the type only on a granted
+    // result keeps the chip from showing "Notification" as active when nothing would be posted.
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            selectedReminderType = ReminderType.NOTIFICATION
+        }
+    }
 
     // 0 = None, 1 = DatePicker, 2 = TimePicker
     var activePickerDialog by remember { mutableIntStateOf(0) }
@@ -321,19 +348,29 @@ fun ScheduleDialog(
                                     type = type,
                                     isSelected = selectedReminderType == type,
                                     onClick = {
-                                        // Alarm can't actually stay selected while the app isn't
-                                        // exempt from battery optimization — the OS can silently
-                                        // kill it before the alarm fires, so the chip would show
-                                        // "Alarm" as active while nothing reliable is scheduled.
-                                        // Block the selection itself (rather than selecting it and
-                                        // nagging afterwards) so dismissing the dialog can't leave
-                                        // the UI on a state that doesn't actually work.
-                                        if (type == ReminderType.ALARM &&
-                                            !BatteryOptimizationHelper.isIgnoringBatteryOptimizations(context)
-                                        ) {
-                                            showBatteryReliabilityDialog = true
-                                        } else {
-                                            selectedReminderType = type
+                                        when {
+                                            // Alarm can't actually stay selected while the app
+                                            // isn't exempt from battery optimization — the OS can
+                                            // silently kill it before the alarm fires, so the chip
+                                            // would show "Alarm" as active while nothing reliable
+                                            // is scheduled. Block the selection itself (rather
+                                            // than selecting it and nagging afterwards) so
+                                            // dismissing the dialog can't leave the UI on a state
+                                            // that doesn't actually work.
+                                            type == ReminderType.ALARM &&
+                                                    !BatteryOptimizationHelper.isIgnoringBatteryOptimizations(context) -> {
+                                                showBatteryReliabilityDialog = true
+                                            }
+                                            // Same idea for Notification: without POST_NOTIFICATIONS
+                                            // (API 33+), NotificationManagerCompat.notify() is a
+                                            // silent no-op, so request it here and only select the
+                                            // type once it's actually been granted.
+                                            type == ReminderType.NOTIFICATION && !hasNotificationPermission() -> {
+                                                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                            }
+                                            else -> {
+                                                selectedReminderType = type
+                                            }
                                         }
                                     },
                                     modifier = Modifier.weight(1f)

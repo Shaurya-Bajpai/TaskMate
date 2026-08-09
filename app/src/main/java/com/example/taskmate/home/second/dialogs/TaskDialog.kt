@@ -131,19 +131,8 @@ fun TaskDialog(todo: Todo?, onDismiss: () -> Unit, onConfirm: (Todo) -> Unit) {
             ReminderOffset.decodeSet(todo?.reminderOffsetsMinutes).ifEmpty { setOf(ReminderOffset.AT_DUE_TIME) }
         )
     }
-    var selectedReminderType by remember { mutableStateOf(todo?.reminderType ?: ReminderType.NOTIFICATION) }
+    var selectedReminderType by remember { mutableStateOf(todo?.reminderType ?: ReminderType.NONE) }
     var showScheduleDialog by remember { mutableStateOf(false) }
-
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-        onResult = { /* We just need it requested to post notifications */ }
-    )
-
-    LaunchedEffect(Unit) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
-    }
 
     if (showScheduleDialog) {
         ScheduleDialog(
