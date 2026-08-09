@@ -397,8 +397,26 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null, op
                     // avoid abrupt layout jumps that can cause flickering during the keyboard animation.
                     androidx.compose.animation.AnimatedVisibility(
                         visible = isSelectionMode,
-                        enter = fadeIn(),
-                        exit = fadeOut()
+                        enter = slideInVertically(
+                            initialOffsetY = { fullHeight -> fullHeight },
+                            animationSpec = tween(
+                                durationMillis = 350
+                            )
+                        ) + fadeIn(
+                            animationSpec = tween(
+                                durationMillis = 250
+                            )
+                        ),
+                        exit = slideOutVertically(
+                            targetOffsetY = { fullHeight -> fullHeight },
+                            animationSpec = tween(
+                                durationMillis = 350
+                            )
+                        ) + fadeOut(
+                            animationSpec = tween(
+                                durationMillis = 200
+                            )
+                        )
                     ) {
                         DeleteFAB(
                             onClick = {
@@ -409,8 +427,26 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null, op
 
                     androidx.compose.animation.AnimatedVisibility(
                         visible = !isSelectionMode && !isKeyboardVisible,
-                        enter = fadeIn(),
-                        exit = fadeOut()
+                        enter = slideInVertically(
+                            initialOffsetY = { fullHeight -> fullHeight },
+                            animationSpec = tween(
+                                durationMillis = 350
+                            )
+                        ) + fadeIn(
+                            animationSpec = tween(
+                                durationMillis = 250
+                            )
+                        ),
+                        exit = slideOutVertically(
+                            targetOffsetY = { fullHeight -> fullHeight },
+                            animationSpec = tween(
+                                durationMillis = 350
+                            )
+                        ) + fadeOut(
+                            animationSpec = tween(
+                                durationMillis = 200
+                            )
+                        )
                     ) {
                         FloatingActionButton(
                             onClick = {
