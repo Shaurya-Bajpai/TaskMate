@@ -198,6 +198,16 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null, op
     // dropped into an editor for a task they may not want to change.
     var highlightedTaskId by remember { mutableStateOf<Long?>(null) }
     val listState = rememberLazyListState()
+
+    // Automatically scroll to top when a new task is added
+    var previousTaskCount by remember { mutableIntStateOf(todoList.size) }
+    LaunchedEffect(todoList.size) {
+        if (todoList.size > previousTaskCount) {
+            listState.animateScrollToItem(0)
+        }
+        previousTaskCount = todoList.size
+    }
+
     var initialHandleDone by remember { mutableStateOf(false) }
     LaunchedEffect(filteredTodos, initialTaskId) {
         if (!initialHandleDone && initialTaskId != null && initialTaskId != -1L && filteredTodos.isNotEmpty()) {
@@ -426,6 +436,7 @@ fun TaskMateHomeScreen(viewModel: TodoViewModel, initialTaskId: Long? = null, op
                 } else {
                     viewModel.addTask(todo)
                     searchQuery = ""
+                    selectedFilter = FilterType.ACTIVE
                 }
                 editingTodo = null
             }
