@@ -3,14 +3,18 @@ package com.example.taskmate.widget
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.TabRowDefaults.Divider
+import androidx.compose.material.Icon
+import androidx.compose.material.IconButton
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.glance.GlanceId
@@ -62,7 +66,7 @@ private object WidgetColors {
     val Card = ColorProvider(day = Color(0xFF1E293B), night = Color(0xFF1E293B))
     val Background = ColorProvider(day = Color(0xFF0F172A), night = Color(0xFF0F172A))
     val TextPrimary = ColorProvider(day = Color(0xFFF8FAFC), night = Color(0xFFF8FAFC))
-    val TextSecondary = ColorProvider(day = Color(0xFF94A3B8), night = Color(0xFF94A3B8))
+    val TextSecondary = ColorProvider(day = Color(0xFFD2DFF6), night = Color(0xFFC0D5F3))
     val HeaderSubtext = ColorProvider(day = Color(0xFF6D7A88), night = Color(0xFF94A3B8))
     val HeaderButtonBg = ColorProvider(day = Color(0xFF6C7A85), night = Color(0xFF94A3B8))
     val Accent = ColorProvider(day = Color(0xFF8B5CF6), night = Color(0xFF8B5CF6))
@@ -98,12 +102,9 @@ class TaskMateWidget : GlanceAppWidget() {
         val repository = context.widgetEntryPoint().todoRepository()
 
         provideContent {
-            // Glance holds a session lock for ~45s after each update(), silently coalescing any
-            // updateAll() calls made while it's held (so a toggle right after another one can
-            // never trigger a fresh provideGlance). Collecting the repository Flows here instead
-            // of doing a one-shot fetch means the already-running session recomposes on its own
-            // whenever Room emits a change, regardless of the session-lock/update() timing.
-            val tasks by repository.getAllTasks().collectAsState(initial = emptyList())
+            // Use collectAsState so the widget recomposes when Room emits changes. This
+            // avoids stale UI after toggles made from the app or widget.
+            val tasks by repository.getActiveTasks().collectAsState(initial = emptyList())
             val totalCount by repository.getTotalTaskCount().collectAsState(initial = 0)
             val completedCount by repository.getCompletedTaskCount().collectAsState(initial = 0)
 
@@ -121,7 +122,7 @@ class TaskMateWidget : GlanceAppWidget() {
 
 @Composable
 private fun MediumWidgetContent(tasks: List<Todo>, completedCount: Int, totalCount: Int) {
-    val context = androidx.glance.LocalContext.current
+    val context = LocalContext.current
     Column(
         modifier = GlanceModifier
             .fillMaxSize()
@@ -158,7 +159,7 @@ private fun MediumWidgetContent(tasks: List<Todo>, completedCount: Int, totalCou
             LazyColumn(modifier = GlanceModifier.fillMaxSize()) {
                 items(tasks.take(2), itemId = { it.widgetItemId() }) { task ->
                     TaskRow(task, context)
-                    if(tasks.indexOf(task) < tasks.size - 1) Divider()
+//                    if(tasks.indexOf(task) < tasks.size - 1) GlanceDivider()
                 }
             }
         }
@@ -197,27 +198,20 @@ private fun LargeWidgetContent(tasks: List<Todo>, completedCount: Int, totalCoun
                     style = TextStyle(color = WidgetColors.TextSecondary, fontSize = 12.sp)
                 )
             }
-            Box(
-                modifier = GlanceModifier
-                    .size(28.dp)
-                    .roundedCorners(17.dp)
-                    .background(WidgetColors.HeaderButtonBg)
-                    .clickable(
-                        actionStartActivity(
-                            openMainActivityIntent(context).apply {
-                                putExtra("openAddTask", true)
-                            }
-                        )
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "+",
-                    style = TextStyle(
-                        color = WidgetColors.TextPrimary,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
+
+            IconButton(
+                onClick = {
+                    actionStartActivity(
+                        openMainActivityIntent(context).apply {
+                            putExtra("openAddTask", true)
+                        }
                     )
+                }
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.add_task),
+                    contentDescription = null,
+                    modifier = Modifier.size(30.dp)
                 )
             }
         }
@@ -238,7 +232,7 @@ private fun LargeWidgetContent(tasks: List<Todo>, completedCount: Int, totalCoun
             LazyColumn(modifier = GlanceModifier.fillMaxSize()) {
                 items(tasks, itemId = { it.widgetItemId() }) { task ->
                     TaskRow(task, context)
-                    if(tasks.indexOf(task) < tasks.size - 1) Divider()
+//                    if(tasks.indexOf(task) < tasks.size - 1) GlanceDivider()
                 }
             }
         }
@@ -308,6 +302,17 @@ internal fun colorProviderFor(priority: Priority) = when (priority) {
     Priority.HIGH -> WidgetColors.HighPriority
     Priority.MEDIUM -> WidgetColors.MediumPriority
     Priority.LOW -> WidgetColors.LowPriority
+}
+
+@Composable
+private fun GlanceDivider() {
+    Box(
+        modifier = GlanceModifier
+            .fillMaxWidth()
+            .height(1.dp)
+            .background(WidgetColors.HeaderSubtext),
+        contentAlignment = Alignment.BottomCenter
+    ) {}
 }
 
 // Glance's LazyColumn keys rows by itemId and can skip re-rendering a row whose itemId hasn't
