@@ -3,8 +3,10 @@ package com.example.taskmate.home.second.chips
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -17,8 +19,16 @@ import com.example.taskmate.home.second.FilterType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FilterChipRow(selectedFilter: FilterType, onFilterSelected: (FilterType) -> Unit) {
-    LazyRow(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+fun FilterChipRow(
+    selectedFilter: FilterType,
+    onFilterSelected: (FilterType) -> Unit,
+    state: LazyListState = rememberLazyListState()
+) {
+    LazyRow(
+        state = state,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
         items(FilterType.values()) { filter ->
             FilterChip(
                 selected = selectedFilter == filter,
