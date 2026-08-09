@@ -1,8 +1,11 @@
 package com.example.taskmate.home.second.dialogs
 
 import android.Manifest
+import android.app.Activity
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
@@ -27,9 +30,11 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.example.taskmate.R
 import com.example.taskmate.alarm.BatteryOptimizationHelper
@@ -52,6 +57,7 @@ fun ScheduleDialog(
     onConfirm: (date: Long?, reminderType: ReminderType, reminderOffsets: Set<ReminderOffset>) -> Unit
 ) {
     val context = LocalContext.current
+    val activity = context as? Activity
     val maxDialogHeight = (LocalConfiguration.current.screenHeightDp * 0.9f).dp
 
     var selectedDate by remember { mutableStateOf(initialDate) }
@@ -85,6 +91,13 @@ fun ScheduleDialog(
             selectedReminderType = ReminderType.NOTIFICATION
         }
     }
+
+    // Shown instead of re-requesting the permission once Android has permanently denied it
+    // (confirmed on this exact codebase: after two denials, the system stops showing its own
+    // dialog at all and silently returns "not granted" every time). Without this, tapping
+    // "Notification" launched the same silently-failing request over and over — no dialog, no
+    // change, just a chip that never becomes selected.
+    var showNotificationSettingsDialog by remember { mutableStateOf(false) }
 
     // 0 = None, 1 = DatePicker, 2 = TimePicker
     var activePickerDialog by remember { mutableIntStateOf(0) }
@@ -364,9 +377,34 @@ fun ScheduleDialog(
                                             // Same idea for Notification: without POST_NOTIFICATIONS
                                             // (API 33+), NotificationManagerCompat.notify() is a
                                             // silent no-op, so request it here and only select the
-                                            // type once it's actually been granted.
+                                            // type once it's actually been granted. If Android has
+                                            // already permanently denied it (shouldShowRequestPermissionRationale
+                                            // false after a prior request), the system won't show
+                                            // its dialog again — route to the app's notification
+                                            // settings instead of silently re-requesting.
                                             type == ReminderType.NOTIFICATION && !hasNotificationPermission() -> {
-                                                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                                val prefs = context.getSharedPreferences(
+                                                    "taskmate_prefs",
+                                                    android.content.Context.MODE_PRIVATE
+                                                )
+                                                val requestedBefore = prefs.getBoolean(
+                                                    "requested_notification_permission",
+                                                    false
+                                                )
+                                                val canShowSystemDialog = !requestedBefore ||
+                                                        (activity != null && ActivityCompat.shouldShowRequestPermissionRationale(
+                                                            activity,
+                                                            Manifest.permission.POST_NOTIFICATIONS
+                                                        ))
+                                                if (canShowSystemDialog) {
+                                                    prefs.edit().putBoolean(
+                                                        "requested_notification_permission",
+                                                        true
+                                                    ).apply()
+                                                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                                } else {
+                                                    showNotificationSettingsDialog = true
+                                                }
                                             }
                                             else -> {
                                                 selectedReminderType = type
@@ -462,6 +500,54 @@ fun ScheduleDialog(
             onDismissRequest = { showBatteryReliabilityDialog = false },
             onNotNow = { showBatteryReliabilityDialog = false },
             onOpenSettings = { showBatteryReliabilityDialog = false }
+        )
+    }
+
+    if (showNotificationSettingsDialog) {
+        AlertDialog(
+            onDismissRequest = { showNotificationSettingsDialog = false },
+            title = {
+                Text(
+                    stringResource(id = R.string.notification_permission_title),
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            text = {
+                Text(
+                    stringResource(id = R.string.notification_permission_desc),
+                    color = Color.White.copy(alpha = 0.75f),
+                    textAlign = TextAlign.Center,
+                    lineHeight = 20.sp
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showNotificationSettingsDialog = false
+                    val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                        putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                    }
+                    context.startActivity(intent)
+                }) {
+                    Text(
+                        stringResource(id = R.string.autostart_open_settings),
+                        color = Color(0xFF6366F1),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showNotificationSettingsDialog = false }) {
+                    Text(
+                        stringResource(id = R.string.battery_optimization_not_now),
+                        color = Color.White.copy(alpha = 0.6f)
+                    )
+                }
+            },
+            containerColor = Color(0xFF2D3748),
+            shape = RoundedCornerShape(24.dp)
         )
     }
 }
