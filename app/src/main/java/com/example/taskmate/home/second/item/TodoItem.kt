@@ -48,7 +48,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.*
 import com.example.taskmate.data.Todo
-import com.example.taskmate.home.first.dialogs.DeleteDialog
+import com.example.taskmate.home.second.dialogs.DeleteDialog
 import com.example.taskmate.home.second.buttons.IconButton
 import com.example.taskmate.home.second.formatDate
 import com.example.taskmate.home.second.getPriorityColor

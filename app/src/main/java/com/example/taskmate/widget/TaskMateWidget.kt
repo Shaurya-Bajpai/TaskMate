@@ -3,10 +3,13 @@ package com.example.taskmate.widget
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.util.Log
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.glance.GlanceId
@@ -61,7 +64,6 @@ private object WidgetColors {
     val TextPrimary = ColorProvider(day = Color(0xFFF8FAFC), night = Color(0xFFF8FAFC))
     val TextSecondary = ColorProvider(day = Color(0xFFD2DFF6), night = Color(0xFFC0D5F3))
     val HeaderSubtext = ColorProvider(day = Color(0xFF6D7A88), night = Color(0xFF94A3B8))
-    val HeaderButtonBg = ColorProvider(day = Color(0xFF6C7A85), night = Color(0xFF94A3B8))
     val Accent = ColorProvider(day = Color(0xFF8B5CF6), night = Color(0xFF8B5CF6))
     val HighPriority = ColorProvider(day = Color(0xFFEF4444), night = Color(0xFFEF4444))
     val MediumPriority = ColorProvider(day = Color(0xFFF59E0B), night = Color(0xFFF59E0B))
@@ -97,10 +99,10 @@ class TaskMateWidget : GlanceAppWidget() {
 
             provideContent {
                 // Wrap in remember + LaunchedEffect so exceptions are caught outside composition
-                val tasksState = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<List<Todo>>(emptyList()) }
-                val totalCountState = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(0) }
-                val completedCountState = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(0) }
-                val errorState = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+                val tasksState = remember { mutableStateOf<List<Todo>>(emptyList()) }
+                val totalCountState = remember { mutableStateOf(0) }
+                val completedCountState = remember { mutableStateOf(0) }
+                val errorState = remember { mutableStateOf<String?>(null) }
 
                 androidx.compose.runtime.LaunchedEffect(Unit) {
                     try {
@@ -108,23 +110,23 @@ class TaskMateWidget : GlanceAppWidget() {
                         try {
                             repository.getActiveTasks().collect { tasksState.value = it }
                         } catch (e: Exception) {
-                            android.util.Log.e("TaskMateWidget", "Error loading active tasks", e)
+                            Log.e("TaskMateWidget", "Error loading active tasks", e)
                             errorState.value = "Failed to load tasks"
                         }
 
                         try {
                             repository.getTotalTaskCount().collect { totalCountState.value = it }
                         } catch (e: Exception) {
-                            android.util.Log.e("TaskMateWidget", "Error loading total count", e)
+                            Log.e("TaskMateWidget", "Error loading total count", e)
                         }
 
                         try {
                             repository.getCompletedTaskCount().collect { completedCountState.value = it }
                         } catch (e: Exception) {
-                            android.util.Log.e("TaskMateWidget", "Error loading completed count", e)
+                            Log.e("TaskMateWidget", "Error loading completed count", e)
                         }
                     } catch (t: Throwable) {
-                        android.util.Log.e("TaskMateWidget", "Unexpected error in LaunchedEffect", t)
+                        Log.e("TaskMateWidget", "Unexpected error in LaunchedEffect", t)
                         errorState.value = "Error"
                     }
                 }
@@ -167,7 +169,7 @@ class TaskMateWidget : GlanceAppWidget() {
                 }
             }
         } catch (t: Throwable) {
-            android.util.Log.e("TaskMateWidget", "Fatal widget error in provideGlance", t)
+            Log.e("TaskMateWidget", "Fatal widget error in provideGlance", t)
             provideContent {
                 Box(
                     modifier = GlanceModifier

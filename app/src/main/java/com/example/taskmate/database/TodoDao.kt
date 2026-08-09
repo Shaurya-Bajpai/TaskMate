@@ -10,16 +10,16 @@ interface TodoDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun addTask(todo: Todo): Long
 
-    @Query("SELECT * FROM `todo-table` ORDER BY `todo-priority` DESC, `todo-created-at` DESC")
+    @Query("SELECT * FROM `todo-table` ORDER BY `todo-created-at` DESC")
     fun getAllTask(): Flow<List<Todo>>
 
-    @Query("SELECT * FROM `todo-table` WHERE `todo-is-completed` = 0 ORDER BY `todo-priority` DESC, `todo-due-date` ASC")
+    @Query("SELECT * FROM `todo-table` WHERE `todo-is-completed` = 0 ORDER BY `todo-created-at` DESC")
     fun getActiveTasks(): Flow<List<Todo>>
 
     @Query("SELECT * FROM `todo-table` WHERE `todo-is-completed` = 1 ORDER BY `todo-created-at` DESC")
     fun getCompletedTasks(): Flow<List<Todo>>
 
-    @Query("SELECT * FROM `todo-table` WHERE (`todo-title` LIKE :query OR `todo-description` LIKE :query) ORDER BY `todo-priority` DESC")
+    @Query("SELECT * FROM `todo-table` WHERE (`todo-title` LIKE :query OR `todo-description` LIKE :query) ORDER BY `todo-priority` ASC")
     fun searchTasks(query: String): Flow<List<Todo>>
 
     @Query("SELECT * FROM `todo-table` WHERE `todo-category` = :category ORDER BY `todo-priority` DESC")
