@@ -3,22 +3,15 @@ package com.example.taskmate.widget
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.Icon
-import androidx.compose.material.IconButton
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
+import androidx.glance.Image
 import androidx.glance.ImageProvider
 import androidx.glance.LocalContext
 import androidx.glance.LocalSize
@@ -99,18 +92,94 @@ class TaskMateWidget : GlanceAppWidget() {
     override val sizeMode = SizeMode.Responsive(setOf(WIDGET_SIZE_MEDIUM, WIDGET_SIZE_LARGE))
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val repository = context.widgetEntryPoint().todoRepository()
+        try {
+            val repository = context.widgetEntryPoint().todoRepository()
 
-        provideContent {
-            // Use collectAsState so the widget recomposes when Room emits changes. This
-            // avoids stale UI after toggles made from the app or widget.
-            val tasks by repository.getActiveTasks().collectAsState(initial = emptyList())
-            val totalCount by repository.getTotalTaskCount().collectAsState(initial = 0)
-            val completedCount by repository.getCompletedTaskCount().collectAsState(initial = 0)
+            provideContent {
+                // Wrap in remember + LaunchedEffect so exceptions are caught outside composition
+                val tasksState = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<List<Todo>>(emptyList()) }
+                val totalCountState = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(0) }
+                val completedCountState = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(0) }
+                val errorState = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
 
-            when (pickWidgetSizeTier(LocalSize.current.width)) {
-                WidgetSizeTier.MEDIUM -> MediumWidgetContent(tasks.take(MAX_VISIBLE_TASKS), completedCount, totalCount)
-                WidgetSizeTier.LARGE -> LargeWidgetContent(tasks.take(MAX_VISIBLE_TASKS), completedCount, totalCount)
+                androidx.compose.runtime.LaunchedEffect(Unit) {
+                    try {
+                        // Collect each flow separately with explicit error handling
+                        try {
+                            repository.getActiveTasks().collect { tasksState.value = it }
+                        } catch (e: Exception) {
+                            android.util.Log.e("TaskMateWidget", "Error loading active tasks", e)
+                            errorState.value = "Failed to load tasks"
+                        }
+
+                        try {
+                            repository.getTotalTaskCount().collect { totalCountState.value = it }
+                        } catch (e: Exception) {
+                            android.util.Log.e("TaskMateWidget", "Error loading total count", e)
+                        }
+
+                        try {
+                            repository.getCompletedTaskCount().collect { completedCountState.value = it }
+                        } catch (e: Exception) {
+                            android.util.Log.e("TaskMateWidget", "Error loading completed count", e)
+                        }
+                    } catch (t: Throwable) {
+                        android.util.Log.e("TaskMateWidget", "Unexpected error in LaunchedEffect", t)
+                        errorState.value = "Error"
+                    }
+                }
+
+                if (errorState.value != null) {
+                    // Safe fallback UI
+                    Column(
+                        modifier = GlanceModifier
+                            .fillMaxSize()
+                            .background(WidgetColors.Background)
+                            .padding(8.dp)
+                    ) {
+                        Text(
+                            text = "TaskMate",
+                            style = TextStyle(
+                                color = WidgetColors.TextPrimary,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                        Spacer(modifier = GlanceModifier.height(8.dp))
+                        Text(
+                            text = "Tap to refresh",
+                            style = TextStyle(color = WidgetColors.TextSecondary, fontSize = 12.sp)
+                        )
+                    }
+                } else {
+                    when (pickWidgetSizeTier(LocalSize.current.width)) {
+                        WidgetSizeTier.MEDIUM -> MediumWidgetContent(
+                            tasksState.value.take(MAX_VISIBLE_TASKS),
+                            completedCountState.value,
+                            totalCountState.value
+                        )
+                        WidgetSizeTier.LARGE -> LargeWidgetContent(
+                            tasksState.value.take(MAX_VISIBLE_TASKS),
+                            completedCountState.value,
+                            totalCountState.value
+                        )
+                    }
+                }
+            }
+        } catch (t: Throwable) {
+            android.util.Log.e("TaskMateWidget", "Fatal widget error in provideGlance", t)
+            provideContent {
+                Box(
+                    modifier = GlanceModifier
+                        .fillMaxSize()
+                        .background(WidgetColors.Background),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "TaskMate",
+                        style = TextStyle(color = WidgetColors.TextPrimary, fontSize = 13.sp)
+                    )
+                }
             }
         }
     }
@@ -144,10 +213,10 @@ private fun MediumWidgetContent(tasks: List<Todo>, completedCount: Int, totalCou
                     fontWeight = FontWeight.Bold
                 )
             )
-            Text(
-                text = "$completedCount/$totalCount",
-                style = TextStyle(color = WidgetColors.TextSecondary, fontSize = 11.sp)
-            )
+//            Text(
+//                text = "$completedCount/$totalCount",
+//                style = TextStyle(color = WidgetColors.TextSecondary, fontSize = 11.sp)
+//            )
         }
         Spacer(modifier = GlanceModifier.height(6.dp))
         if (tasks.isEmpty()) {
@@ -181,7 +250,7 @@ private fun LargeWidgetContent(tasks: List<Todo>, completedCount: Int, totalCoun
             modifier = GlanceModifier
                 .fillMaxWidth()
                 .background(ImageProvider(R.drawable.widget_header_gradient))
-                .padding(14.dp),
+                .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = GlanceModifier.defaultWeight()) {
@@ -193,27 +262,25 @@ private fun LargeWidgetContent(tasks: List<Todo>, completedCount: Int, totalCoun
                         fontWeight = FontWeight.Bold
                     )
                 )
-                Text(
-                    text = "$completedCount/$totalCount done",
-                    style = TextStyle(color = WidgetColors.TextSecondary, fontSize = 12.sp)
-                )
+//                Text(
+//                    text = "$completedCount/$totalCount done",
+//                    style = TextStyle(color = WidgetColors.TextSecondary, fontSize = 12.sp)
+//                )
             }
 
-            IconButton(
-                onClick = {
-                    actionStartActivity(
-                        openMainActivityIntent(context).apply {
-                            putExtra("openAddTask", true)
-                        }
+            Image(
+                provider = ImageProvider(R.drawable.add_task),
+                contentDescription = null,
+                modifier = GlanceModifier
+                    .size(30.dp)
+                    .clickable(
+                        actionStartActivity(
+                            openMainActivityIntent(context).apply {
+                                putExtra("openAddTask", true)
+                            }
+                        )
                     )
-                }
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.add_task),
-                    contentDescription = null,
-                    modifier = Modifier.size(30.dp)
-                )
-            }
+            )
         }
 
         Spacer(modifier = GlanceModifier.height(8.dp))
@@ -254,7 +321,7 @@ private fun TaskRow(task: Todo, context: Context) {
             onCheckedChange = actionRunCallback<ToggleTaskActionCallback>(
                 actionParametersOf(taskIdKey to task.id)
             ),
-            colors = CheckboxDefaults.checkBoxColors(
+            colors = CheckboxDefaults.colors(
                 checkedColor = WidgetColors.Accent,
                 uncheckedColor = WidgetColors.TextSecondary
             ),
@@ -323,3 +390,4 @@ private fun GlanceDivider() {
 // Glance to treat a changed task as a new row and redraw it.
 internal fun Todo.widgetItemId(): Long =
     (id shl 32) or ((listOf(isCompleted, title, priority).hashCode().toLong()) and 0xFFFFFFFFL)
+
